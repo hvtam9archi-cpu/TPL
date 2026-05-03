@@ -16,6 +16,7 @@ using Size = System.Drawing.Size;
 
 namespace TPL
 {
+    [System.ComponentModel.DesignerCategory("Code")]
     public partial class MainForm : Form
     {
         private ComboBox cbPrinters, cbPapers, cbStyles, cbOrd1, cbOrd2, cbBase;
@@ -111,8 +112,8 @@ namespace TPL
             this.Text = L10n.T("app_title");
             this.Font = new Font("Segoe UI", 9F);
             this.BackColor = Color.White;
-            this.MinimumSize = new Size(570, 440);
-            this.ClientSize = new Size(570, 440);
+            this.MinimumSize = new Size(570, 460);
+            this.ClientSize = new Size(570, 460);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.StartPosition = FormStartPosition.CenterParent;
             this.MaximizeBox = false;
@@ -258,21 +259,23 @@ namespace TPL
 
             y += 30;
             // Row 1
-            chkMergePdf = new CheckBox { Text = L10n.T("chk_merge"), Left = col1 + 10, Top = y, Width = 90, Checked = true, ForeColor = Color.Green, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            chkConvertImage = new CheckBox { Text = "Convert to Image", Left = col1 + 120, Top = y, Width = 140, Checked = false, ForeColor = Color.FromArgb(0, 122, 204), Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            chkMergePdf = new CheckBox { Text = L10n.T("chk_merge"), Left = col1 + 10, Top = y, Width = 100, Checked = true, ForeColor = Color.Green, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            chkConvertImage = new CheckBox { Text = "Convert to Image", Left = col1 + 140, Top = y, Width = 140, Checked = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
             
             this.Controls.Add(chkMergePdf);
             this.Controls.Add(chkConvertImage);
 
             y += 25;
             // Row 2
-            chkOpenPdf = new CheckBox { Text = L10n.T("chk_open"), Left = col1 + 10, Top = y, Width = 120, Checked = true, ForeColor = Color.DimGray };
+            chkOpenPdf = new CheckBox { Text = L10n.T("chk_open"), Left = col1 + 10, Top = y, Width = 125, Checked = true };
             
-            Panel pnlImgFormat = new Panel { Left = col1 + 120, Top = y - 2, Width = 170, Height = 25 };
-            rbPng = new RadioButton { Text = "PNG", Left = 0, Top = 2, Width = 50, Checked = true };
-            rbJpg = new RadioButton { Text = "JPG", Left = 50, Top = 2, Width = 45 };
-            Label lblDpi = new Label { Text = "DPI:", Left = 95, Top = 4, Width = 30 };
-            txtDpi = new TextBox { Text = "600", Left = 125, Top = 1, Width = 40 };
+            Panel pnlImgFormat = new Panel { Left = col1 + 140, Top = y - 25, Width = 150, Height = 70 };
+            rbPng = new RadioButton { Text = "PNG", Left = 0, Top = 25, Width = 55 };
+            rbJpg = new RadioButton { Text = "JPG", Left = 60, Top = 25, Width = 55, Checked = true };
+            
+            // Row 3 (inside Panel)
+            Label lblDpi = new Label { Text = "DPI:", Left = 0, Top = 50, Width = 35 };
+            txtDpi = new TextBox { Text = "600", Left = 40, Top = 47, Width = 50 };
             
             pnlImgFormat.Controls.Add(rbPng);
             pnlImgFormat.Controls.Add(rbJpg);
@@ -362,10 +365,10 @@ namespace TPL
             this.Controls.Add(pnlSort);
 
             // ================= BOTTOM =================
-            lblCount = new Label { Text = L10n.T("lbl_ready"), Left = 15, Top = 390, Width = 250, Font = new Font("Segoe UI", 9F, FontStyle.Italic), ForeColor = Color.DimGray };
+            lblCount = new Label { Text = L10n.T("lbl_ready"), Left = 15, Top = 410, Width = 250, Font = new Font("Segoe UI", 9F, FontStyle.Italic), ForeColor = Color.DimGray };
             this.Controls.Add(lblCount);
 
-            int btnY = 380;
+            int btnY = 400;
             btnPlot = new Button { Text = L10n.T("btn_plot"), Left = 320, Top = btnY, Width = 130, Height = 40 };
             btnPlot.BackColor = Color.FromArgb(0, 122, 204);
             btnPlot.ForeColor = Color.White;
