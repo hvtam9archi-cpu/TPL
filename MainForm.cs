@@ -21,9 +21,10 @@ namespace TPL
         private ComboBox cbPrinters, cbPapers, cbStyles, cbOrd1, cbOrd2, cbBase;
         private RadioButton rbAll, rbCurrent, rbSelect;
         private RadioButton rbBlockMode, rbLayerMode;
-        private TextBox txtFuzz, txtPath, txtBlocks, txtLayers, txtFileName, txtDpi;
-        private CheckBox chkMark, chkMergePdf, chkOpenPdf, chkImage;
+        private TextBox txtFuzz, txtPath, txtBlocks, txtLayers, txtFileName;
+        private CheckBox chkMark, chkMergePdf, chkOpenPdf, chkConvertImage;
         private RadioButton rbPng, rbJpg;
+        private TextBox txtDpi;
         private Label lblCount;
         private Button btnPlot, btnCancel, btnBrowsePath, btnSelectBlock, btnSelectLayer, btnSelectManual;
 
@@ -256,36 +257,39 @@ namespace TPL
             this.Controls.Add(btnBrowsePath);
 
             y += 30;
-            chkMergePdf = new CheckBox { Text = L10n.T("chk_merge"), Left = col1 + 50, Top = y, Width = 90, Checked = true, ForeColor = Color.Green, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            chkOpenPdf = new CheckBox { Text = L10n.T("chk_open"), Left = col1 + 50, Top = y + 25, Width = 120, Checked = true, ForeColor = Color.DimGray };
+            // Row 1
+            chkMergePdf = new CheckBox { Text = L10n.T("chk_merge"), Left = col1 + 10, Top = y, Width = 90, Checked = true, ForeColor = Color.Green, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            chkConvertImage = new CheckBox { Text = "Convert to Image", Left = col1 + 120, Top = y, Width = 140, Checked = false, ForeColor = Color.FromArgb(0, 122, 204), Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            
             this.Controls.Add(chkMergePdf);
+            this.Controls.Add(chkConvertImage);
+
+            y += 25;
+            // Row 2
+            chkOpenPdf = new CheckBox { Text = L10n.T("chk_open"), Left = col1 + 10, Top = y, Width = 120, Checked = true, ForeColor = Color.DimGray };
+            
+            Panel pnlImgFormat = new Panel { Left = col1 + 120, Top = y - 2, Width = 170, Height = 25 };
+            rbPng = new RadioButton { Text = "PNG", Left = 0, Top = 2, Width = 50, Checked = true };
+            rbJpg = new RadioButton { Text = "JPG", Left = 50, Top = 2, Width = 45 };
+            Label lblDpi = new Label { Text = "DPI:", Left = 95, Top = 4, Width = 30 };
+            txtDpi = new TextBox { Text = "600", Left = 125, Top = 1, Width = 40 };
+            
+            pnlImgFormat.Controls.Add(rbPng);
+            pnlImgFormat.Controls.Add(rbJpg);
+            pnlImgFormat.Controls.Add(lblDpi);
+            pnlImgFormat.Controls.Add(txtDpi);
+
             this.Controls.Add(chkOpenPdf);
+            this.Controls.Add(pnlImgFormat);
 
-            int colImage = col1 + 150;
-            chkImage = new CheckBox { Text = "Convert to Image", Left = colImage, Top = y, Width = 130, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            this.Controls.Add(chkImage);
-
-            rbPng = new RadioButton { Text = "PNG", Left = colImage, Top = y + 25, Width = 50, Checked = true, Enabled = false };
-            rbJpg = new RadioButton { Text = "JPG", Left = colImage + 50, Top = y + 25, Width = 50, Enabled = false };
-            Label lblDpi = new Label { Text = "DPI:", Left = colImage + 100, Top = y + 27, Width = 30, AutoSize = true, Enabled = false };
-            txtDpi = new TextBox { Text = "300", Left = colImage + 130, Top = y + 24, Width = 40, Enabled = false };
-            this.Controls.Add(rbPng);
-            this.Controls.Add(rbJpg);
-            this.Controls.Add(lblDpi);
-            this.Controls.Add(txtDpi);
-
-            chkMergePdf.CheckedChanged += (s, e) => {
-                if (chkMergePdf.Checked) chkImage.Checked = false;
+            // Mutual exclusion logic
+            chkMergePdf.CheckedChanged += (s, e) => { if (chkMergePdf.Checked) chkConvertImage.Checked = false; };
+            chkConvertImage.CheckedChanged += (s, e) => 
+            { 
+                if (chkConvertImage.Checked) chkMergePdf.Checked = false; 
+                pnlImgFormat.Enabled = chkConvertImage.Checked;
             };
-
-            chkImage.CheckedChanged += (s, e) => {
-                bool imgChecked = chkImage.Checked;
-                if (imgChecked) chkMergePdf.Checked = false;
-                rbPng.Enabled = imgChecked;
-                rbJpg.Enabled = imgChecked;
-                lblDpi.Enabled = imgChecked;
-                txtDpi.Enabled = imgChecked;
-            };
+            pnlImgFormat.Enabled = false; // default state
 
             // ================= COL 2 =================
             y = 10;
@@ -648,8 +652,8 @@ namespace TPL
             data.MarkPlotRegions = chkMark.Checked;
             data.MergePdfs = chkMergePdf.Checked;
             data.OpenPdf = chkOpenPdf.Checked;
-            data.ConvertToImage = chkImage.Checked;
-            data.ImageFormat = rbPng.Checked ? "PNG" : "JPG";
+            data.ConvertToImage = chkConvertImage.Checked;
+            data.ImageFormat = rbJpg.Checked ? "JPG" : "PNG";
             data.ImageDpi = int.TryParse(txtDpi.Text, out int dpi) ? dpi : 300;
             data.BaseFileName = txtFileName.Text;
             data.ManualSelectionIds = new List<ObjectId>(tempManualSelectionIds);
@@ -881,6 +885,9 @@ namespace TPL
                 chkMark.Checked = ls.MarkPlotRegions;
                 chkMergePdf.Checked = ls.MergePdfs;
                 chkOpenPdf.Checked = ls.OpenPdf;
+                chkConvertImage.Checked = ls.ConvertToImage;
+                if (ls.ImageFormat == "JPG") rbJpg.Checked = true; else rbPng.Checked = true;
+                txtDpi.Text = ls.ImageDpi.ToString();
                 txtFileName.Text = ls.BaseFileName;
             }
             else
