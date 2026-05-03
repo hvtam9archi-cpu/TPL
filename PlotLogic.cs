@@ -369,7 +369,47 @@ namespace TPL
                 progressForm.Update();
 
                 string finalPath = generatedFiles.Count > 0 ? generatedFiles[0] : null;
-                if (settings.MergePdfs && generatedFiles.Count > 1
+                
+                if (settings.ConvertToImage && generatedFiles.Count > 0)
+                {
+                    lblSub.Text = "Converting to Image..."; progressForm.Update();
+                    var imageFiles = new List<string>();
+                    for(int i = 0; i < generatedFiles.Count; i++)
+                    {
+                        string pdfFile = generatedFiles[i];
+                        string extImg = settings.ImageFormat == "PNG" ? ".png" : ".jpg";
+                        string imgFile = Path.Combine(outDir, $"{baseName}_{i + 1:D2}{extImg}");
+
+                        try
+                        {
+                            using (var document = PdfiumViewer.PdfDocument.Load(pdfFile))
+                            {
+                                int dpi = settings.ImageDpi > 0 ? settings.ImageDpi : 300;
+                                using (var image = document.Render(0, dpi, dpi, PdfiumViewer.PdfRenderFlags.CorrectFromDpi))
+                                {
+                                    if (settings.ImageFormat == "PNG")
+                                        image.Save(imgFile, System.Drawing.Imaging.ImageFormat.Png);
+                                    else
+                                        image.Save(imgFile, System.Drawing.Imaging.ImageFormat.Jpeg);
+                                }
+                            }
+                            imageFiles.Add(imgFile);
+                            try { File.Delete(pdfFile); } catch { }
+                        }
+                        catch (System.Exception ex)
+                        {
+                            ed.WriteMessage($"\nImage convert error ({pdfFile}): {ex.Message}");
+                        }
+                        
+                        lblProg.Text = string.Format(L10n.T("prog_progress"), i + 1, generatedFiles.Count);
+                        pb.Value = i + 1;
+                        progressForm.Update();
+                    }
+                    generatedFiles = imageFiles;
+                    if (generatedFiles.Count > 0) finalPath = generatedFiles[0];
+                    ed.WriteMessage($"\nConverted {generatedFiles.Count} images to {outDir}");
+                }
+                else if (settings.MergePdfs && generatedFiles.Count > 1
                     && generatedFiles.All(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)))
                 {
                     try

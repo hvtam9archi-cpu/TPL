@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0"
+                    AppVersion="1.0.0"
+                    Name="TPL - Batch Plotter"
+                    Description="AutoCAD Batch Plotting Plugin - Hỗ trợ in hàng loạt layout"
+                    Author="Tam Hoang"
+                    ProductCode="{FFD5CCD5-C23C-4A59-8016-6437F3B2346B}">
+
+  <CompanyDetails Name="Tam Hoang" Email="" />
+
+  <Components>
+    <!-- 
+      SeriesMin/SeriesMax Reference:
+        R20.0 = AutoCAD 2015    R23.0 = AutoCAD 2019
+        R23.1 = AutoCAD 2020    R24.0 = AutoCAD 2021
+        R24.1 = AutoCAD 2022    R24.2 = AutoCAD 2023
+        R24.3 = AutoCAD 2024    R25.0 = AutoCAD 2025
+        R25.1 = AutoCAD 2026
+      
+      Plugin này target .NET Framework 4.8 nên tương thích từ AutoCAD 2021 (R24.0) trở lên.
+    -->
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.0" SeriesMax="R25.1" />
+
+    <ComponentEntry AppName="TPL"
+                    ModuleName="./Contents/TPL.dll"
+                    LoadReasons="OnAutoCADStartup">
+      <Commands GroupName="TPL_COMMANDS">
+        <Command Global="TPL" Local="TPL" />
+      </Commands>
+    </ComponentEntry>
+  </Components>
+</ApplicationPackage>

@@ -2,6 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
     <LangVersion>10.0</LangVersion>
+    <AssemblyName>TPL</AssemblyName>
+    <RootNamespace>TPL</RootNamespace>
     <UseWindowsForms>true</UseWindowsForms>
     <UseWPF>true</UseWPF>
     <Platforms>AnyCPU;x64</Platforms>
@@ -17,8 +19,24 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="PdfiumViewer" Version="2.13.0" />
+    <PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" />
     <PackageReference Include="PDFsharp" Version="6.1.1" />
+    <PackageReference Include="System.Management" Version="10.0.7" />
   </ItemGroup>
+
+  <!-- Post-build: Tự động deploy vào ApplicationPlugins -->
+  <Target Name="DeployBundle" AfterTargets="Build">
+    <!-- Tạo thư mục bundle nếu chưa có -->
+    <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents" />
+    <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\x64" />
+    <!-- Copy DLL vào Contents -->
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents" SkipUnchangedFiles="false" />
+    <!-- Copy pdfium.dll vào Contents/x64 -->
+    <Copy SourceFiles="$(TargetDir)x64\pdfium.dll" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\x64" SkipUnchangedFiles="false" ContinueOnError="true" />
+    <!-- Copy PackageContents.xml vào bundle root -->
+    <Copy SourceFiles="$(ProjectDir)TPL.bundle\PackageContents.xml" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle" SkipUnchangedFiles="false" />
+  </Target>
 </Project>
 
 
