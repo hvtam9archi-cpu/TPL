@@ -14,7 +14,7 @@ using Color = System.Drawing.Color;
 using Font = System.Drawing.Font;
 using Size = System.Drawing.Size;
 
-namespace NDPL
+namespace TPL
 {
     public partial class MainForm : Form
     {
@@ -409,7 +409,7 @@ namespace NDPL
                                 try
                                 {
                                     Entity ent = tr.GetObject(entId, OpenMode.ForRead) as Entity;
-                                    if (ent != null && string.Equals(ent.Layer, "NDPL_MARKERS", StringComparison.OrdinalIgnoreCase))
+                                    if (ent != null && string.Equals(ent.Layer, "TPL_MARKERS", StringComparison.OrdinalIgnoreCase))
                                     {
                                         ent.UpgradeOpen();
                                         ent.Erase();
@@ -539,11 +539,11 @@ namespace NDPL
                 using (Transaction tr = doc.Database.TransactionManager.StartTransaction())
                 {
                     LayerTable lt = (LayerTable)tr.GetObject(doc.Database.LayerTableId, OpenMode.ForRead);
-                    if (!lt.Has("NDPL_MARKERS"))
+                    if (!lt.Has("TPL_MARKERS"))
                     {
                         lt.UpgradeOpen();
                         LayerTableRecord ltr = new LayerTableRecord();
-                        ltr.Name = "NDPL_MARKERS";
+                        ltr.Name = "TPL_MARKERS";
                         ltr.Color = Autodesk.AutoCAD.Colors.Color.FromColorIndex(Autodesk.AutoCAD.Colors.ColorMethod.ByAci, 1);
                         ltr.IsPlottable = false;
                         lt.Add(ltr);
@@ -551,7 +551,7 @@ namespace NDPL
                     }
                     else
                     {
-                        LayerTableRecord ltr = (LayerTableRecord)tr.GetObject(lt["NDPL_MARKERS"], OpenMode.ForWrite);
+                        LayerTableRecord ltr = (LayerTableRecord)tr.GetObject(lt["TPL_MARKERS"], OpenMode.ForWrite);
                         ltr.IsPlottable = false;
                         ltr.Color = Autodesk.AutoCAD.Colors.Color.FromColorIndex(Autodesk.AutoCAD.Colors.ColorMethod.ByAci, 1);
                     }
@@ -576,13 +576,13 @@ namespace NDPL
                         Point3d bottomRight = new Point3d(pMax.X, pMin.Y, pMax.Z);
 
                         Line line = new Line(topLeft, bottomRight);
-                        line.Layer = "NDPL_MARKERS";
+                        line.Layer = "TPL_MARKERS";
                         line.ColorIndex = 1;
                         btr.AppendEntity(line);
                         tr.AddNewlyCreatedDBObject(line, true);
 
                         MText txt = new MText();
-                        txt.Layer = "NDPL_MARKERS";
+                        txt.Layer = "TPL_MARKERS";
                         txt.Contents = "{\\fVerdana|b0|i0|c0|p0;" + (i + 1).ToString() + "}";
                         txt.TextHeight = Math.Min(lenX, lenY) / 5.0;
                         txt.Location = new Point3d(

@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace NDPL
+namespace TPL
 {
     public class PlotFrame
     {
@@ -338,7 +338,7 @@ namespace NDPL
                     using (var pe = PlotFactory.CreatePublishEngine())
                     using (var ppd = new PlotProgressDialog(false, 1, true))
                     {
-                        ppd.set_PlotMsgString(PlotMessageIndex.DialogTitle, "NDPL");
+                        ppd.set_PlotMsgString(PlotMessageIndex.DialogTitle, "TPL");
                         ppd.set_PlotMsgString(PlotMessageIndex.CancelJobButtonMessage, "Cancel");
                         ppd.set_PlotMsgString(PlotMessageIndex.CancelSheetButtonMessage, "Cancel");
                         ppd.LowerPlotProgressRange = 0; ppd.UpperPlotProgressRange = 100; ppd.PlotProgressPos = 0;

@@ -2,7 +2,7 @@ using Microsoft.Win32;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace NDPL
+namespace TPL
 {
     public static class ThemeManager
     {

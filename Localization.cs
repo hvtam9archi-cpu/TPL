@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 
-namespace NDPL
+namespace TPL
 {
     public static class L10n
     {
