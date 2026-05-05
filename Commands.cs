@@ -8,6 +8,7 @@ namespace TPL
     {
         public static PlotHelper.PlotSettingsData LastSettings = null;
         private static MainForm _mainForm = null;
+        public static MainForm MainFormInstance => _mainForm;
 
         [CommandMethod("TPL")]
         public void AutoPlotCommand()

@@ -92,6 +92,18 @@ namespace TPL
             ["prog_progress"] = "Tiến trình: {0} / {1}",
             ["prog_file"] = "Tập tin: {0}",
             ["prog_merging"] = "Đang gộp PDF...",
+            ["pdf_editor_title"] = "Chỉnh sửa PDF - TPL",
+            ["btn_add"] = "+ Thêm",
+            ["btn_remove"] = "- Xóa",
+            ["btn_up"] = "▲ Lên",
+            ["btn_down"] = "▼ Xuống",
+            ["btn_save_file"] = "Lưu file",
+            ["page_name"] = "{0} - Trang {1}",
+            ["msg_save_success"] = "Lưu thành công!",
+            ["msg_save_error"] = "Lỗi khi lưu file: {0}",
+            ["dlg_add_pdf"] = "Chọn PDF để thêm",
+            ["dlg_save_pdf"] = "Lưu PDF đã gộp",
+            ["btn_plot_more"] = "+ Plot",
         };
 
         // ─── English ──────────────────────────────────────────────────────────
@@ -151,6 +163,18 @@ namespace TPL
             ["prog_merging"] = "Merging PDF...",
             ["btn_delete_marks"] = "Delete",
             ["lbl_ready"] = "Ready",
+            ["pdf_editor_title"] = "PDF Editor - TPL",
+            ["btn_add"] = "+ Add",
+            ["btn_remove"] = "- Remove",
+            ["btn_up"] = "▲ Up",
+            ["btn_down"] = "▼ Down",
+            ["btn_save_file"] = "Save File",
+            ["page_name"] = "{0} - Page {1}",
+            ["msg_save_success"] = "Saved successfully!",
+            ["msg_save_error"] = "Error saving file: {0}",
+            ["dlg_add_pdf"] = "Select PDF to add",
+            ["dlg_save_pdf"] = "Save merged PDF",
+            ["btn_plot_more"] = "+ Plot",
         };
 
         // ─── Chinese (Simplified) 简体中文 ─────────────────────────────────────

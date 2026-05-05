@@ -57,6 +57,7 @@ namespace TPL
             public bool MergePdfs { get; set; }
             public bool OpenPdf { get; set; }
             public bool ConvertToImage { get; set; }
+            public bool PdfEditor { get; set; }
             public string ImageFormat { get; set; } = "PNG";
             public int ImageDpi { get; set; } = 300;
             public List<ObjectId> ManualSelectionIds { get; set; } = new List<ObjectId>();

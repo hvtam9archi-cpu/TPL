@@ -293,14 +293,22 @@ namespace TPL
             var generatedFiles = new List<string>();
             try
             {
+                int fileCounter = 1;
                 for (int i = 0; i < plotJobs.Count; i++)
                 {
                     var job = plotJobs[i];
-                    string filePath = Path.Combine(outDir, $"{baseName}_{i + 1:D2}{ext}");
+                    string filePath;
+                    string fileName;
+                    do
+                    {
+                        fileName = $"{baseName}_{fileCounter:D2}{ext}";
+                        filePath = Path.Combine(outDir, fileName);
+                        fileCounter++;
+                    } while (File.Exists(filePath));
 
                     lblProg.Text = string.Format(L10n.T("prog_progress"), i + 1, plotJobs.Count);
                     pb.Value = i;
-                    lblSub.Text = string.Format(L10n.T("prog_file"), $"{baseName}_{i + 1:D2}{ext}");
+                    lblSub.Text = string.Format(L10n.T("prog_file"), fileName);
                     progressForm.Update();
 
                     // Layout switch + Zoom to Window + Regen
@@ -401,7 +409,7 @@ namespace TPL
                         {
                             string pdfFile = generatedFiles[i];
                             string imgExt = settings.ImageFormat.ToLower();
-                            string imgPath = Path.Combine(outDir, $"{baseName}_{(i + 1):D2}.{imgExt}");
+                            string imgPath = Path.ChangeExtension(pdfFile, imgExt);
                             
                             using (var docPdf = PdfiumViewer.PdfDocument.Load(pdfFile))
                             {
@@ -426,6 +434,31 @@ namespace TPL
                         if (imageFiles.Count > 0) finalPath = imageFiles[0];
                     }
                     catch (System.Exception ex) { ed.WriteMessage($"\nConvert Image error: {ex.Message}"); }
+                }
+                else if (settings.PdfEditor && generatedFiles.Count > 0 && generatedFiles.All(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)))
+                {
+                    try
+                    {
+                        var editor = PdfEditorForm.Instance;
+                        editor.SetDefaultFileName(baseName);
+                        editor.AddPdfFiles(generatedFiles);
+                        
+                        if (Commands.MainFormInstance != null)
+                            Commands.MainFormInstance.Hide();
+
+                        if (!editor.Visible)
+                        {
+                            if (!editor.IsHandleCreated)
+                                Application.ShowModelessDialog(Application.MainWindow.Handle, editor);
+                            else
+                                editor.Show();
+                        }
+                        else
+                        {
+                            editor.BringToFront();
+                        }
+                    }
+                    catch (System.Exception ex) { ed.WriteMessage($"\nPDF Editor error: {ex.Message}"); }
                 }
 
                 progressForm.Close(); progressForm.Dispose();

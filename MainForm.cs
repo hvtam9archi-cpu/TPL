@@ -23,7 +23,7 @@ namespace TPL
         private RadioButton rbAll, rbCurrent, rbSelect;
         private RadioButton rbBlockMode, rbLayerMode;
         private TextBox txtFuzz, txtPath, txtBlocks, txtLayers, txtFileName;
-        private CheckBox chkMark, chkMergePdf, chkOpenPdf, chkConvertImage;
+        private CheckBox chkMark, chkMergePdf, chkOpenPdf, chkConvertImage, chkPdfEditor;
         private RadioButton rbPng, rbJpg;
         private TextBox txtDpi;
         private Label lblCount;
@@ -112,8 +112,8 @@ namespace TPL
             this.Text = L10n.T("app_title");
             this.Font = new Font("Segoe UI", 9F);
             this.BackColor = Color.White;
-            this.MinimumSize = new Size(570, 460);
-            this.ClientSize = new Size(570, 460);
+            this.MinimumSize = new Size(570, 490);
+            this.ClientSize = new Size(570, 490);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.StartPosition = FormStartPosition.CenterParent;
             this.MaximizeBox = false;
@@ -267,9 +267,14 @@ namespace TPL
 
             y += 25;
             // Row 2
+            chkPdfEditor = new CheckBox { Text = "PDF Editor", Left = col1 + 10, Top = y, Width = 100, Checked = false, ForeColor = Color.Purple, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            this.Controls.Add(chkPdfEditor);
+
+            y += 25;
+            // Row 3
             chkOpenPdf = new CheckBox { Text = L10n.T("chk_open"), Left = col1 + 10, Top = y, Width = 125, Checked = true };
             
-            Panel pnlImgFormat = new Panel { Left = col1 + 140, Top = y - 25, Width = 150, Height = 70 };
+            Panel pnlImgFormat = new Panel { Left = col1 + 140, Top = y - 50, Width = 150, Height = 70 };
             rbPng = new RadioButton { Text = "PNG", Left = 0, Top = 25, Width = 55 };
             rbJpg = new RadioButton { Text = "JPG", Left = 60, Top = 25, Width = 55, Checked = true };
             
@@ -286,11 +291,16 @@ namespace TPL
             this.Controls.Add(pnlImgFormat);
 
             // Mutual exclusion logic
-            chkMergePdf.CheckedChanged += (s, e) => { if (chkMergePdf.Checked) chkConvertImage.Checked = false; };
+            chkMergePdf.CheckedChanged += (s, e) => { 
+                if (chkMergePdf.Checked) { chkConvertImage.Checked = false; chkPdfEditor.Checked = false; } 
+            };
             chkConvertImage.CheckedChanged += (s, e) => 
             { 
-                if (chkConvertImage.Checked) chkMergePdf.Checked = false; 
+                if (chkConvertImage.Checked) { chkMergePdf.Checked = false; chkPdfEditor.Checked = false; } 
                 pnlImgFormat.Enabled = chkConvertImage.Checked;
+            };
+            chkPdfEditor.CheckedChanged += (s, e) => {
+                if (chkPdfEditor.Checked) { chkMergePdf.Checked = false; chkConvertImage.Checked = false; }
             };
             pnlImgFormat.Enabled = false; // default state
 
@@ -656,6 +666,7 @@ namespace TPL
             data.MergePdfs = chkMergePdf.Checked;
             data.OpenPdf = chkOpenPdf.Checked;
             data.ConvertToImage = chkConvertImage.Checked;
+            data.PdfEditor = chkPdfEditor.Checked;
             data.ImageFormat = rbJpg.Checked ? "JPG" : "PNG";
             data.ImageDpi = int.TryParse(txtDpi.Text, out int dpi) ? dpi : 300;
             data.BaseFileName = txtFileName.Text;
@@ -889,6 +900,7 @@ namespace TPL
                 chkMergePdf.Checked = ls.MergePdfs;
                 chkOpenPdf.Checked = ls.OpenPdf;
                 chkConvertImage.Checked = ls.ConvertToImage;
+                chkPdfEditor.Checked = ls.PdfEditor;
                 if (ls.ImageFormat == "JPG") rbJpg.Checked = true; else rbPng.Checked = true;
                 txtDpi.Text = ls.ImageDpi.ToString();
                 txtFileName.Text = ls.BaseFileName;
@@ -966,6 +978,20 @@ namespace TPL
             catch (System.Exception ex)
             {
                 MessageBox.Show(string.Format(L10n.T("msg_plot_error"), ex.Message), L10n.T("err_title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        public void SetSubPlotMode(bool isSubPlot)
+        {
+            chkMergePdf.Enabled = !isSubPlot;
+            chkConvertImage.Enabled = !isSubPlot;
+            chkPdfEditor.Enabled = !isSubPlot;
+
+            if (isSubPlot)
+            {
+                chkPdfEditor.Checked = true;
+                chkMergePdf.Checked = false;
+                chkConvertImage.Checked = false;
             }
         }
 
