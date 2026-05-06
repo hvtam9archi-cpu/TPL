@@ -242,11 +242,44 @@ namespace TPL
                         ps.CopyFrom(lay);
                         PlotSettingsValidator psv = PlotSettingsValidator.Current;
 
-                        // CRITICAL: Must set PlotWindowArea (even dummy WCS) BEFORE setting PlotType to Window to avoid eInvalidInput
-                        psv.SetPlotWindowArea(ps, new Extents2d(frame.Extents.MinPoint.X, frame.Extents.MinPoint.Y, frame.Extents.MaxPoint.X, frame.Extents.MaxPoint.Y));
+                        // 1. Set Device and Paper Size FIRST
+                        try { psv.SetPlotConfigurationName(ps, settings.DeviceName, settings.PaperSize.Replace(" ", "_")); } catch { }
+
+                        // 2. Set PlotWindowArea (dummy or real) BEFORE PlotType
+                        Extents2d plotExt;
+                        if (lay.ModelType)
+                        {
+                            using (ViewTableRecord vtr = ed.GetCurrentView())
+                            {
+                                Matrix3d matWCS2DCS = Matrix3d.WorldToPlane(vtr.ViewDirection) * 
+                                                      Matrix3d.Displacement(Point3d.Origin - vtr.Target) * 
+                                                      Matrix3d.Rotation(vtr.ViewTwist, vtr.ViewDirection, vtr.Target);
+                                
+                                Point3d p1 = new Point3d(frame.Extents.MinPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
+                                Point3d p2 = new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
+                                Point3d p3 = new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MaxPoint.Y, 0).TransformBy(matWCS2DCS);
+                                Point3d p4 = new Point3d(frame.Extents.MinPoint.X, frame.Extents.MaxPoint.Y, 0).TransformBy(matWCS2DCS);
+
+                                double minX = Math.Min(Math.Min(p1.X, p2.X), Math.Min(p3.X, p4.X));
+                                double minY = Math.Min(Math.Min(p1.Y, p2.Y), Math.Min(p3.Y, p4.Y));
+                                double maxX = Math.Max(Math.Max(p1.X, p2.X), Math.Max(p3.X, p4.X));
+                                double maxY = Math.Max(Math.Max(p1.Y, p2.Y), Math.Max(p3.Y, p4.Y));
+
+                                plotExt = new Extents2d(minX, minY, maxX, maxY);
+                            }
+                        }
+                        else
+                        {
+                            plotExt = new Extents2d(frame.Extents.MinPoint.X, frame.Extents.MinPoint.Y, frame.Extents.MaxPoint.X, frame.Extents.MaxPoint.Y);
+                        }
+                        psv.SetPlotWindowArea(ps, plotExt);
+
+                        // 3. Set PlotType
                         psv.SetPlotType(ps, Autodesk.AutoCAD.DatabaseServices.PlotType.Window);
 
-                        try { psv.SetPlotConfigurationName(ps, settings.DeviceName, settings.PaperSize.Replace(" ", "_")); } catch { }
+                        // 4. Set PlotWindowArea AGAIN to ensure it isn't reset by PlotType
+                        psv.SetPlotWindowArea(ps, plotExt);
+
                         try { psv.SetCurrentStyleSheet(ps, settings.PlotStyle); } catch { }
 
                         psv.SetUseStandardScale(ps, true);
@@ -311,10 +344,10 @@ namespace TPL
                     lblSub.Text = string.Format(L10n.T("prog_file"), fileName);
                     progressForm.Update();
 
-                    // Layout switch + Zoom to Window + Regen
-                    // Zooming ensures graphics pipeline doesn't cull objects outside current view
+                    // Layout switch
                     LayoutManager.Current.CurrentLayout = job.LayoutName;
-                    try
+                    ed.UpdateScreen();
+                    /* zoom removed
                     {
                         using (ViewTableRecord view = ed.GetCurrentView())
                         {
@@ -332,14 +365,15 @@ namespace TPL
 
                             // Set PlotWindowArea with exact DCS coordinates
                             PlotSettingsValidator psv = PlotSettingsValidator.Current;
-                            psv.SetPlotWindowArea(job.Ps, dcsExt);
+                            psv.SetPlotWindowArea(job.Ps, new Extents2d(job.Extents.MinPoint.X, job.Extents.MinPoint.Y, job.Extents.MaxPoint.X, job.Extents.MaxPoint.Y));
                             psv.SetPlotType(job.Ps, Autodesk.AutoCAD.DatabaseServices.PlotType.Window);
                             psv.SetUseStandardScale(job.Ps, true);
                             psv.SetStdScaleType(job.Ps, StdScaleType.ScaleToFit);
                             psv.SetPlotCentered(job.Ps, true);
                         }
                     }
-                    catch { }
+                    */
+
 
                     if (PlotFactory.ProcessPlotState != ProcessPlotState.NotPlotting) continue;
 
@@ -439,24 +473,17 @@ namespace TPL
                 {
                     try
                     {
-                        var editor = PdfEditorForm.Instance;
+                        var editor = PdfEditorWindow.Instance;
                         editor.SetDefaultFileName(baseName);
                         editor.AddPdfFiles(generatedFiles);
                         
                         if (Commands.MainFormInstance != null)
                             Commands.MainFormInstance.Hide();
 
-                        if (!editor.Visible)
-                        {
-                            if (!editor.IsHandleCreated)
-                                Application.ShowModelessDialog(Application.MainWindow.Handle, editor);
-                            else
-                                editor.Show();
-                        }
+                        if (!editor.IsVisible)
+                            editor.Show();
                         else
-                        {
-                            editor.BringToFront();
-                        }
+                            editor.Activate();
                     }
                     catch (System.Exception ex) { ed.WriteMessage($"\nPDF Editor error: {ex.Message}"); }
                 }

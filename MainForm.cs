@@ -27,7 +27,7 @@ namespace TPL
         private RadioButton rbPng, rbJpg;
         private TextBox txtDpi;
         private Label lblCount;
-        private Button btnPlot, btnCancel, btnBrowsePath, btnSelectBlock, btnSelectLayer, btnSelectManual;
+        private Button btnPlot, btnCancel, btnBrowsePath, btnSelectBlock, btnSelectLayer, btnSelectManual, btnBackToEditor;
 
         public PlotHelper.PlotSettingsData Settings { get; private set; }
         public bool IsPlotConfirmed { get; private set; }
@@ -38,14 +38,22 @@ namespace TPL
         private System.Windows.Forms.Timer _previewDebounce;
         private Document _markerDoc;
         private Document _selectionDoc; // doc in which the current selection was made
-        private Dictionary<Document, List<DBObject>> _pendingTransients = new Dictionary<Document, List<DBObject>>();
+        private static Dictionary<Document, List<DBObject>> _pendingTransients = new Dictionary<Document, List<DBObject>>();
+        private static bool _globalEventsSubscribed = false;
 
         public MainForm()
         {
             L10n.Init();
             _previewDebounce = new System.Windows.Forms.Timer { Interval = 600 };
             _previewDebounce.Tick += (s, e) => { _previewDebounce.Stop(); UpdatePreview(); };
-            Application.DocumentManager.DocumentActivated += DocumentManager_DocumentActivated;
+            
+            if (!_globalEventsSubscribed)
+            {
+                Application.DocumentManager.DocumentActivated += GlobalDocumentActivated;
+                Application.DocumentManager.DocumentToBeDestroyed += GlobalDocumentToBeDestroyed;
+                _globalEventsSubscribed = true;
+            }
+
             InitializeComponent();
             // Apply icon
             try
@@ -65,8 +73,8 @@ namespace TPL
                 }
             }
             catch { }
-            // Apply dark mode
-            ThemeManager.Apply(this, ThemeManager.IsDarkMode());
+            // ThemeManager tạm bỏ — sẽ thêm lại sau
+            // ThemeManager.Apply(this, ThemeManager.IsDarkMode());
             LoadData();
             isInitializing = false;
             UpdatePreview();
@@ -147,7 +155,7 @@ namespace TPL
             y += 30;
             this.Controls.Add(new Label { Text = L10n.T("label_style"), Left = col1, Top = y + 4, AutoSize = true, ForeColor = Color.DimGray });
             cbStyles = new ComboBox { Left = col1 + 80, Top = y, Width = 180, DropDownStyle = ComboBoxStyle.DropDownList };
-            Button btnEditStyle = new Button { Left = col1 + 265, Top = y - 1, Width = 25, Height = 23 };
+            Button btnEditStyle = new Button { Left = col1 + 265, Top = y, Width = 25, Height = 25 };
             StyleButton(btnEditStyle);
             try
             {
@@ -260,7 +268,7 @@ namespace TPL
             y += 30;
             // Row 1
             chkMergePdf = new CheckBox { Text = L10n.T("chk_merge"), Left = col1 + 10, Top = y, Width = 100, Checked = true, ForeColor = Color.Green, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            chkConvertImage = new CheckBox { Text = "Convert to Image", Left = col1 + 140, Top = y, Width = 140, Checked = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            chkConvertImage = new CheckBox { Text = "Convert to Image", Left = col1 + 140, Top = y, Width = 140, Checked = false, ForeColor = Color.Blue, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
             
             this.Controls.Add(chkMergePdf);
             this.Controls.Add(chkConvertImage);
@@ -379,6 +387,18 @@ namespace TPL
             this.Controls.Add(lblCount);
 
             int btnY = 400;
+            btnBackToEditor = new Button { Text = "Editor", Left = 210, Top = btnY, Width = 100, Height = 40, Visible = false };
+            StyleButton(btnBackToEditor);
+            btnBackToEditor.Click += (s, e) => {
+                var pdfEditor = PdfEditorWindow.Instance;
+                if (pdfEditor != null && pdfEditor.IsLoaded)
+                {
+                    pdfEditor.Show();
+                    pdfEditor.Activate();
+                    this.Hide();
+                }
+            };
+
             btnPlot = new Button { Text = L10n.T("btn_plot"), Left = 320, Top = btnY, Width = 130, Height = 40 };
             btnPlot.BackColor = Color.FromArgb(0, 122, 204);
             btnPlot.ForeColor = Color.White;
@@ -392,6 +412,7 @@ namespace TPL
             StyleButton(btnCancel);
             btnCancel.Click += (s, e) => this.Close();
 
+            this.Controls.Add(btnBackToEditor);
             this.Controls.Add(btnPlot);
             this.Controls.Add(btnCancel);
 
@@ -415,7 +436,7 @@ namespace TPL
             _previewDebounce.Start();
         }
 
-        private void DocumentManager_DocumentActivated(object sender, DocumentCollectionEventArgs e)
+        private static void GlobalDocumentActivated(object sender, DocumentCollectionEventArgs e)
         {
             if (e.Document == null) return;
             if (_pendingTransients.TryGetValue(e.Document, out var list))
@@ -431,6 +452,12 @@ namespace TPL
                 catch { }
                 _pendingTransients.Remove(e.Document);
             }
+        }
+
+        private static void GlobalDocumentToBeDestroyed(object sender, DocumentCollectionEventArgs e)
+        {
+            if (e.Document == null) return;
+            _pendingTransients.Remove(e.Document);
         }
 
         private void ClearPermanentMarkers()
@@ -986,6 +1013,9 @@ namespace TPL
             chkMergePdf.Enabled = !isSubPlot;
             chkConvertImage.Enabled = !isSubPlot;
             chkPdfEditor.Enabled = !isSubPlot;
+            
+            if (btnBackToEditor != null)
+                btnBackToEditor.Visible = isSubPlot;
 
             if (isSubPlot)
             {
@@ -995,13 +1025,104 @@ namespace TPL
             }
         }
 
+        private void QueueTransientsForCleanup()
+        {
+            try
+            {
+                var tm = TransientManager.CurrentTransientManager;
+                Document currentDoc = Application.DocumentManager.MdiActiveDocument;
+
+                if (transientObjects.Count > 0 && _markerDoc != null && !_markerDoc.IsDisposed)
+                {
+                    if (_markerDoc == currentDoc)
+                    {
+                        try
+                        {
+                            using (DocumentLock docLock = _markerDoc.LockDocument())
+                            {
+                                foreach (var obj in transientObjects)
+                                {
+                                    try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { }
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                    else
+                    {
+                        if (!_pendingTransients.ContainsKey(_markerDoc))
+                            _pendingTransients[_markerDoc] = new List<DBObject>();
+                        _pendingTransients[_markerDoc].AddRange(transientObjects);
+                    }
+                    transientObjects.Clear();
+                }
+
+                if (currentDoc != null && _pendingTransients.TryGetValue(currentDoc, out var list))
+                {
+                    try
+                    {
+                        using (DocumentLock docLock = currentDoc.LockDocument())
+                        {
+                            foreach (var obj in list)
+                            {
+                                try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { }
+                            }
+                        }
+                    }
+                    catch { }
+                    _pendingTransients.Remove(currentDoc);
+                }
+            }
+            catch { }
+        }
+
+        private void ClearPermanentMarkersGlobally()
+        {
+            foreach (Document doc in Application.DocumentManager)
+            {
+                if (doc == null || doc.IsDisposed) continue;
+                try
+                {
+                    using (DocumentLock docLock = doc.LockDocument())
+                    using (Transaction tr = doc.Database.TransactionManager.StartTransaction())
+                    {
+                        BlockTable bt = (BlockTable)tr.GetObject(doc.Database.BlockTableId, OpenMode.ForRead);
+                        foreach (ObjectId btrId in bt)
+                        {
+                            BlockTableRecord btr = (BlockTableRecord)tr.GetObject(btrId, OpenMode.ForRead);
+                            if (btr.IsLayout)
+                            {
+                                foreach (ObjectId entId in btr)
+                                {
+                                    try
+                                    {
+                                        Entity ent = tr.GetObject(entId, OpenMode.ForRead) as Entity;
+                                        if (ent != null && string.Equals(ent.Layer, "TPL_MARKERS", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            ent.UpgradeOpen();
+                                            ent.Erase();
+                                        }
+                                    }
+                                    catch { }
+                                }
+                            }
+                        }
+                        tr.Commit();
+                    }
+                    try { doc.Editor.UpdateScreen(); } catch { }
+                }
+                catch { }
+            }
+        }
+
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             _previewDebounce?.Stop();
             _previewDebounce?.Dispose();
-            Application.DocumentManager.DocumentActivated -= DocumentManager_DocumentActivated;
-            ClearTransientMarkers();
-            ClearPermanentMarkers();
+            // Note: Application.DocumentManager.DocumentActivated is NOT unsubscribed
+            // so it can continue to clean up pending transients when the user switches documents.
+            QueueTransientsForCleanup();
+            ClearPermanentMarkersGlobally();
             base.OnFormClosed(e);
         }
     }

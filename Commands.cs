@@ -7,48 +7,65 @@ namespace TPL
     public class Commands
     {
         public static PlotHelper.PlotSettingsData LastSettings = null;
-        private static MainForm _mainForm = null;
-        public static MainForm MainFormInstance => _mainForm;
+        private static MainWindow _mainWindow = null;
+        public static MainWindow MainFormInstance => _mainWindow;
 
         [CommandMethod("TPL")]
         public void AutoPlotCommand()
         {
-            Document doc = Application.DocumentManager.MdiActiveDocument;
-            if (doc == null) return;
-
-            // Kiểm tra bản quyền trước khi mở
-            var license = LicenseManager.GetLicenseInfo();
-            if (!license.IsValid)
+            try
             {
-                using (var licenseForm = new LicenseForm(license))
+                Document doc = Application.DocumentManager.MdiActiveDocument;
+                if (doc == null) return;
+
+                // Kiểm tra bản quyền trước khi mở
+                var license = LicenseManager.GetLicenseInfo();
+                if (!license.IsValid)
                 {
-                    if (Application.ShowModalDialog(licenseForm) != System.Windows.Forms.DialogResult.OK)
+                    using (var licenseForm = new LicenseForm(license))
                     {
-                        doc.Editor.WriteMessage("\n[TPL] Bản quyền không hợp lệ hoặc đã hết hạn.\n");
-                        return; // Thoát nếu chưa kích hoạt
+                        if (Application.ShowModalDialog(licenseForm) != System.Windows.Forms.DialogResult.OK)
+                        {
+                            doc.Editor.WriteMessage("\n[TPL] Bản quyền không hợp lệ hoặc đã hết hạn.\n");
+                            return;
+                        }
                     }
+                    license = LicenseManager.GetLicenseInfo();
+                    if (!license.IsValid) return;
                 }
-                
-                // Load lại xem đã kích hoạt thành công chưa
-                license = LicenseManager.GetLicenseInfo();
-                if (!license.IsValid) return;
+
+                LicenseManager.UpdateLastRunDate(license);
+                LicenseManager.CheckRemoteRevokeAsync();
+
+                if (_mainWindow == null || !_mainWindow.IsLoaded)
+                {
+                    _mainWindow = new MainWindow();
+                    // Gán owner an toàn — Application.MainWindow có thể null
+                    try
+                    {
+                        var acWin = Application.MainWindow;
+                        if (acWin != null)
+                        {
+                            var helper = new System.Windows.Interop.WindowInteropHelper(_mainWindow);
+                            helper.Owner = acWin.Handle;
+                        }
+                    }
+                    catch { /* Bỏ qua nếu không lấy được HWND */ }
+                    _mainWindow.Show();
+                }
+                else
+                {
+                    _mainWindow.Activate();
+                }
             }
-
-            // Cập nhật ngày dùng cuối để chống tua ngược thời gian
-            LicenseManager.UpdateLastRunDate(license);
-
-            // Gửi một luồng chạy ngầm để kiểm tra xem máy này có bị khoá từ xa hay không
-            // (Không làm chậm thao tác của người dùng do chạy dưới nền)
-            LicenseManager.CheckRemoteRevokeAsync();
-
-            if (_mainForm == null || _mainForm.IsDisposed)
+            catch (System.Exception ex)
             {
-                _mainForm = new MainForm();
-                Application.ShowModelessDialog(Application.MainWindow.Handle, _mainForm);
-            }
-            else
-            {
-                _mainForm.Focus();
+                try
+                {
+                    var ed = Application.DocumentManager.MdiActiveDocument?.Editor;
+                    ed?.WriteMessage($"\n[TPL] Error: {ex.ToString()}\n");
+                }
+                catch { }
             }
         }
 

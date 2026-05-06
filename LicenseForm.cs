@@ -21,7 +21,8 @@ namespace TPL
         {
             _info = info;
             InitializeComponent();
-            ThemeManager.Apply(this, ThemeManager.IsDarkMode());
+            // ThemeManager tạm bỏ — sẽ thêm lại sau
+            // ThemeManager.Apply(this, ThemeManager.IsDarkMode());
             LoadLicenseData();
         }
 

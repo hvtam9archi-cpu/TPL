@@ -75,7 +75,10 @@ namespace TPL
             {
                 c.BackColor = Color.Transparent;
                 if (c.ForeColor == Color.DimGray) c.ForeColor = DarkMuted;
-                else if (c.ForeColor != Color.Green && c.ForeColor != Color.FromArgb(100, 200, 100))
+                else if (c.ForeColor == Color.Green) c.ForeColor = Color.FromArgb(100, 200, 100);
+                else if (c.ForeColor == Color.Blue) c.ForeColor = Color.FromArgb(100, 180, 255);
+                else if (c.ForeColor == Color.Purple) c.ForeColor = Color.FromArgb(220, 130, 255);
+                else if (c.ForeColor != Color.FromArgb(100, 200, 100) && c.ForeColor != Color.FromArgb(100, 180, 255) && c.ForeColor != Color.FromArgb(220, 130, 255))
                     c.ForeColor = DarkText;
             }
             else if (c is Button btn)
