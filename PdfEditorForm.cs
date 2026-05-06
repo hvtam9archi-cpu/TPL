@@ -59,10 +59,11 @@ namespace TPL
 
             var splitContainer = new SplitContainer { 
                 Dock = DockStyle.Fill, 
-                SplitterDistance = 290,
                 FixedPanel = FixedPanel.Panel1,
-                IsSplitterFixed = true
+                IsSplitterFixed = true,
+                Panel1MinSize = 320
             };
+            this.Load += (s, e) => splitContainer.SplitterDistance = 320;
             this.Controls.Add(splitContainer);
 
             var pnlLeft = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10) };
@@ -71,29 +72,26 @@ namespace TPL
             var pnlTools = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 40, FlowDirection = FlowDirection.LeftToRight };
             pnlLeft.Controls.Add(pnlTools);
 
-            btnPlusPlot = new Button { Text = L10n.T("btn_plot_more"), Width = 55, Height = 30, FlatStyle = FlatStyle.Flat };
-            btnPlusPlot.BackColor = Color.FromArgb(0, 150, 136);
-            btnPlusPlot.ForeColor = Color.White;
-            btnPlusPlot.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            btnPlusPlot = new Button { Text = L10n.T("btn_plot_more"), Width = 55, Height = 30, BackColor = Color.FromArgb(0, 122, 204), ForeColor = Color.White, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), FlatStyle = FlatStyle.Flat };
             btnPlusPlot.FlatAppearance.BorderSize = 0;
 
-            btnAdd = new Button { Text = L10n.T("btn_add"), Width = 50, Height = 30, FlatStyle = FlatStyle.Flat };
-            btnRemove = new Button { Text = L10n.T("btn_remove"), Width = 50, Height = 30, FlatStyle = FlatStyle.Flat };
-            btnUp = new Button { Text = L10n.T("btn_up"), Width = 50, Height = 30, FlatStyle = FlatStyle.Flat };
-            btnDown = new Button { Text = L10n.T("btn_down"), Width = 55, Height = 30, FlatStyle = FlatStyle.Flat };
+            btnAdd = new Button { Text = L10n.T("btn_add"), Width = 55, Height = 30, BackColor = Color.Black, ForeColor = Color.White, Font = new Font("Segoe UI", 8F, FontStyle.Bold), FlatStyle = FlatStyle.Flat };
+            btnRemove = new Button { Text = L10n.T("btn_remove"), Width = 55, Height = 30, BackColor = Color.Black, ForeColor = Color.White, Font = new Font("Segoe UI", 8F, FontStyle.Bold), FlatStyle = FlatStyle.Flat };
+            btnUp = new Button { Text = L10n.T("btn_up"), Width = 50, Height = 30, BackColor = Color.Black, ForeColor = Color.White, Font = new Font("Segoe UI", 8F, FontStyle.Bold), FlatStyle = FlatStyle.Flat };
+            btnDown = new Button { Text = L10n.T("btn_down"), Width = 50, Height = 30, BackColor = Color.Black, ForeColor = Color.White, Font = new Font("Segoe UI", 8F, FontStyle.Bold), FlatStyle = FlatStyle.Flat };
 
             pnlTools.Controls.AddRange(new Control[] { btnPlusPlot, btnAdd, btnRemove, btnUp, btnDown });
 
             var pnlBottom = new Panel { Dock = DockStyle.Bottom, Height = 90 };
             pnlLeft.Controls.Add(pnlBottom);
             
-            pnlBottom.Controls.Add(new Label { Text = L10n.T("label_basename"), Left = 10, Top = 10, AutoSize = true, Font = new Font("Segoe UI", 9F) });
-            txtFileName = new TextBox { Left = 10, Top = 30, Width = 290, Font = new Font("Segoe UI", 9F) };
+            pnlBottom.Controls.Add(new Label { Text = L10n.T("label_basename"), Left = 10, Top = 0, AutoSize = true, ForeColor = Color.White, Font = new Font("Segoe UI", 8F) });
+            txtFileName = new TextBox { Left = 10, Top = 20, Width = 290, Font = new Font("Segoe UI", 9F) };
             pnlBottom.Controls.Add(txtFileName);
 
             btnSave = new Button { Text = L10n.T("btn_save_file"), Width = 140, Height = 32, Left = 10, Top = 55, BackColor = Color.FromArgb(0, 122, 204), ForeColor = Color.White, Font = new Font("Segoe UI", 9F, FontStyle.Bold), FlatStyle = FlatStyle.Flat };
             btnSave.FlatAppearance.BorderSize = 0;
-            btnCancel = new Button { Text = L10n.T("btn_cancel"), Width = 140, Height = 32, Left = 160, Top = 55, FlatStyle = FlatStyle.Flat };
+            btnCancel = new Button { Text = L10n.T("btn_cancel"), Width = 140, Height = 32, Left = 160, Top = 55, BackColor = Color.Black, ForeColor = Color.White, Font = new Font("Segoe UI", 9F, FontStyle.Bold), FlatStyle = FlatStyle.Flat };
             pnlBottom.Controls.AddRange(new Control[] { btnSave, btnCancel });
 
             foreach(var btn in new[] { btnAdd, btnRemove, btnUp, btnDown, btnCancel }) {
