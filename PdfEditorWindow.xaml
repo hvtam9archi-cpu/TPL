@@ -6,8 +6,8 @@
         MinWidth="700" MinHeight="450"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
-        AllowsTransparency="True"
-        Background="Transparent"
+        Background="#181A1F"
+        AllowsTransparency="False"
         ShowInTaskbar="True"
         ResizeMode="CanResizeWithGrip">
 
@@ -220,19 +220,32 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListViewItem">
-                        <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Padding="4,4">
+                        <Border x:Name="Bd" Background="{Binding RowBackgroundColorBrush}" 
+                                BorderBrush="Transparent" BorderThickness="1.5" 
+                                CornerRadius="4" Padding="4,4" Margin="2,1">
                             <GridViewRowPresenter/>
                         </Border>
                         <ControlTemplate.Triggers>
+                            <!-- Selected: gradient border + blended accent/group background -->
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#2563EB"/>
+                                <Setter TargetName="Bd" Property="BorderBrush">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#60A5FA" Offset="0.0"/>
+                                            <GradientStop Color="#C084FC" Offset="1.0"/>
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter TargetName="Bd" Property="Background" Value="{Binding SelectedBackgroundBrush}"/>
                             </Trigger>
+                            <!-- Hover (not selected): brighter group tint -->
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsSelected" Value="False"/>
                                     <Condition Property="IsMouseOver" Value="True"/>
                                 </MultiTrigger.Conditions>
-                                <Setter TargetName="Bd" Property="Background" Value="#252830"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{Binding HoverBackgroundBrush}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#20FFFFFF"/>
                             </MultiTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -260,13 +273,10 @@
         </Style>
     </Window.Resources>
 
-    <!-- ─── Main Window Border (rounded, drop-shadow) ─── -->
-    <Border CornerRadius="10" Background="{StaticResource BgBrush}" 
+    <!-- ─── Main Window Border ─── -->
+    <Border Background="{StaticResource BgBrush}" 
             BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
             ClipToBounds="True">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.5" Color="Black"/>
-        </Border.Effect>
 
         <Grid>
             <Grid.RowDefinitions>
@@ -306,7 +316,7 @@
             <!-- ═══ CONTENT ═══ -->
             <Grid Grid.Row="1" Margin="14,10,14,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="360" MinWidth="280"/>
+                    <ColumnDefinition Width="300" MinWidth="250"/>
                     <ColumnDefinition Width="8"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
@@ -323,12 +333,12 @@
                         <Button x:Name="btnPlusPlot" Content="＋ Plot" 
                                 Style="{StaticResource AccentButton}" Margin="0,0,6,0" FontSize="11"
                                 Padding="10,5" Click="BtnPlusPlot_Click"/>
-                        <Button x:Name="btnAdd" Content="＋ Add" 
+                        <Button x:Name="btnAdd" Content="Add" 
                                 Style="{StaticResource DarkButton}" Margin="0,0,6,0" FontSize="11"
-                                Padding="10,5" Click="BtnAdd_Click"/>
-                        <Button x:Name="btnRemove" Content="— Remove" 
+                                Padding="10,5" Click="BtnAdd_Click" FontWeight="Bold"/>
+                        <Button x:Name="btnRemove" Content="Remove" 
                                 Style="{StaticResource DangerButton}" Margin="0,0,6,0" FontSize="11"
-                                Padding="10,5" Click="BtnRemove_Click"/>
+                                Padding="10,5" Click="BtnRemove_Click" FontWeight="Bold"/>
                         <Button x:Name="btnUp" Content="▲" 
                                 Style="{StaticResource DarkButton}" Margin="0,0,4,0" FontSize="11"
                                 Padding="8,5" Width="34" Click="BtnUp_Click"/>
@@ -363,7 +373,38 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="Page" Width="280" 
+                                <GridViewColumn Header="Src" Width="42">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border CornerRadius="3" Padding="4,1" HorizontalAlignment="Center">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="#1A2563EB"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding SourceLabel}" Value="File">
+                                                                <Setter Property="Background" Value="#1A22C55E"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding SourceLabel}" FontSize="9" 
+                                                           FontWeight="SemiBold" HorizontalAlignment="Center">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="#60A5FA"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding SourceLabel}" Value="File">
+                                                                    <Setter Property="Foreground" Value="#4ADE80"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Border>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Page" Width="180" 
                                                 DisplayMemberBinding="{Binding DisplayName}"/>
                             </GridView>
                         </ListView.View>
@@ -427,19 +468,19 @@
                         <Button x:Name="btnSave" Content="💾  Save File" 
                                 Style="{StaticResource AccentButton}" 
                                 Width="140" Height="36" FontSize="13"
-                                Click="BtnSave_Click"/>
+                                Click="BtnSave_Click" BorderBrush="#00000000" Margin="0,4,0,0"/>
                         <Button x:Name="btnCancel" Content="Cancel" 
                                 Style="{StaticResource DarkButton}" 
-                                Width="100" Height="36" Margin="8,0,0,0"
+                                Width="100" Height="36" Margin="8,4,0,0"
                                 Click="BtnCancel_Click"/>
                     </StackPanel>
 
                     <!-- Left side: File name -->
-                    <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
+                    <StackPanel DockPanel.Dock="Left" Height="50">
                         <TextBlock Text="File Name" Foreground="{StaticResource LabelBrush}" 
-                                   FontSize="10" FontFamily="Segoe UI" Margin="0,0,0,4" Width="260"/>
+                                   FontSize="10" FontFamily="Segoe UI" Margin="0,0,0,4" Width="279" HorizontalAlignment="Right"/>
                         <TextBox x:Name="txtFileName" Style="{StaticResource DarkTextBox}" 
-                                 Width="260" Height="32" FontSize="12"/>
+                                 Width="260" Height="27" FontSize="12" HorizontalAlignment="Right" Margin="0,0,20,5"/>
                     </StackPanel>
                 </DockPanel>
             </Border>

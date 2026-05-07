@@ -29,6 +29,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Resource\StyleSettings_32px.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>

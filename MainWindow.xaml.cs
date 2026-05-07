@@ -187,7 +187,6 @@ namespace TPL
         {
             chkMark.IsChecked = false;
             ClearPermanentMarkers();
-            ClearTransientMarkers();
         }
 
         // ── Back to editor ──
@@ -245,5 +244,10 @@ namespace TPL
             data.ManualSelectionIds = new List<ObjectId>(tempManualSelectionIds);
             return data;
         }
-    }
+
+		private void rbPng_Checked(object sender, RoutedEventArgs e)
+		{
+
+		}
+	}
 }

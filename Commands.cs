@@ -22,13 +22,11 @@ namespace TPL
                 var license = LicenseManager.GetLicenseInfo();
                 if (!license.IsValid)
                 {
-                    using (var licenseForm = new LicenseForm(license))
+                    var licenseWin = new LicenseWindow(license);
+                    if (Application.ShowModalWindow(licenseWin) != true)
                     {
-                        if (Application.ShowModalDialog(licenseForm) != System.Windows.Forms.DialogResult.OK)
-                        {
-                            doc.Editor.WriteMessage("\n[TPL] Bản quyền không hợp lệ hoặc đã hết hạn.\n");
-                            return;
-                        }
+                        doc.Editor.WriteMessage("\n[TPL] Bản quyền không hợp lệ hoặc đã hết hạn.\n");
+                        return;
                     }
                     license = LicenseManager.GetLicenseInfo();
                     if (!license.IsValid) return;
@@ -73,10 +71,8 @@ namespace TPL
         public void LicenseCommand()
         {
             var license = LicenseManager.GetLicenseInfo();
-            using (var licenseForm = new LicenseForm(license))
-            {
-                Application.ShowModalDialog(licenseForm);
-            }
+            var licenseWin = new LicenseWindow(license);
+            Application.ShowModalWindow(licenseWin);
         }
 
     }
