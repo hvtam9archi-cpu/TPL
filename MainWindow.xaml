@@ -466,7 +466,11 @@
                                       Style="{StaticResource DarkCheck}" Checked="TriggerPreviewCheck" Unchecked="TriggerPreviewCheck" HorizontalAlignment="Left" Margin="0,3,0,3" Width="121" Grid.ColumnSpan="2"/>
 							<Button x:Name="btnDeleteMarks" Grid.Row="4" Grid.Column="1" Content="Delete"
                                     Style="{StaticResource DarkButton}" HorizontalAlignment="Right" Height="25"
-                                    Click="BtnDeleteMarks_Click"/>
+                                    Click="BtnDeleteMarks_Click">
+								<Button.Background>
+									<SolidColorBrush Color="{DynamicResource BorderColor}"/>
+								</Button.Background>
+							</Button>
 						</Grid>
 					</Border>
 				</StackPanel>

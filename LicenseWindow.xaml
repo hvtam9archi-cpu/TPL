@@ -198,7 +198,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="txtKey" Grid.Column="0" Style="{StaticResource DarkTextBox}" />
                     <Button Grid.Column="1" Content="Kích Hoạt" Style="{StaticResource AccentButton}" 
-                            Margin="8,0,0,0" Width="80" Click="BtnActivate_Click"/>
+                            Margin="8,0,0,0" Width="80" Click="BtnActivate_Click" FontSize="11"/>
                 </Grid>
 
                 <!-- Footer Buttons -->
