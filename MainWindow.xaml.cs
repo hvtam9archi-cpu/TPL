@@ -1,8 +1,5 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.EditorInput;
-using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.GraphicsInterface;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -55,6 +52,7 @@ namespace TPL
                     LoadData();
                     isInitializing = false;
                     UpdatePreview();
+                    SubscribeDatabaseEvents();
                 }
                 catch (Exception ex)
                 {
@@ -97,29 +95,29 @@ namespace TPL
         private void ChkMergePdf_Changed(object sender, RoutedEventArgs e)
         {
             if (isInitializing || chkMergePdf == null) return;
-            if (chkMergePdf.IsChecked == true) 
-            { 
-                if (chkConvertImage != null) chkConvertImage.IsChecked = false; 
-                if (chkPdfEditor != null) chkPdfEditor.IsChecked = false; 
+            if (chkMergePdf.IsChecked == true)
+            {
+                if (chkConvertImage != null) chkConvertImage.IsChecked = false;
+                if (chkPdfEditor != null) chkPdfEditor.IsChecked = false;
             }
         }
         private void ChkConvertImage_Changed(object sender, RoutedEventArgs e)
         {
             if (isInitializing || chkConvertImage == null) return;
-            if (chkConvertImage.IsChecked == true) 
-            { 
-                if (chkMergePdf != null) chkMergePdf.IsChecked = false; 
-                if (chkPdfEditor != null) chkPdfEditor.IsChecked = false; 
+            if (chkConvertImage.IsChecked == true)
+            {
+                if (chkMergePdf != null) chkMergePdf.IsChecked = false;
+                if (chkPdfEditor != null) chkPdfEditor.IsChecked = false;
             }
             if (pnlImgFormat != null) pnlImgFormat.IsEnabled = chkConvertImage.IsChecked == true;
         }
         private void ChkPdfEditor_Changed(object sender, RoutedEventArgs e)
         {
             if (isInitializing || chkPdfEditor == null) return;
-            if (chkPdfEditor.IsChecked == true) 
-            { 
-                if (chkMergePdf != null) chkMergePdf.IsChecked = false; 
-                if (chkConvertImage != null) chkConvertImage.IsChecked = false; 
+            if (chkPdfEditor.IsChecked == true)
+            {
+                if (chkMergePdf != null) chkMergePdf.IsChecked = false;
+                if (chkConvertImage != null) chkConvertImage.IsChecked = false;
             }
         }
 
@@ -245,9 +243,94 @@ namespace TPL
             return data;
         }
 
-		private void rbPng_Checked(object sender, RoutedEventArgs e)
-		{
+        // ── Auto-Update Transients on Block Move ──
+        private void SubscribeDatabaseEvents()
+        {
+            try
+            {
+                Application.DocumentManager.DocumentActivated -= DocumentManager_DocumentActivated_Local;
+                Application.DocumentManager.DocumentActivated += DocumentManager_DocumentActivated_Local;
 
-		}
-	}
+                var doc = Application.DocumentManager.MdiActiveDocument;
+                if (doc != null)
+                {
+                    AttachDbEvents(doc.Database);
+                }
+            }
+            catch { }
+        }
+
+        private void UnsubscribeDatabaseEvents()
+        {
+            try
+            {
+                Application.DocumentManager.DocumentActivated -= DocumentManager_DocumentActivated_Local;
+                foreach (Document doc in Application.DocumentManager)
+                {
+                    DetachDbEvents(doc.Database);
+                }
+            }
+            catch { }
+        }
+
+        private void DocumentManager_DocumentActivated_Local(object sender, DocumentCollectionEventArgs e)
+        {
+            try
+            {
+                if (e.Document != null)
+                {
+                    AttachDbEvents(e.Document.Database);
+                }
+            }
+            catch { }
+        }
+
+        private void AttachDbEvents(Database db)
+        {
+            if (db == null) return;
+            DetachDbEvents(db); // Prevent double hook
+            db.ObjectModified += Database_ObjectModified;
+            db.ObjectErased += Database_ObjectErased;
+            db.ObjectAppended += Database_ObjectModified;
+        }
+
+        private void DetachDbEvents(Database db)
+        {
+            if (db == null) return;
+            db.ObjectModified -= Database_ObjectModified;
+            db.ObjectErased -= Database_ObjectErased;
+            db.ObjectAppended -= Database_ObjectModified;
+        }
+
+        private void Database_ObjectModified(object sender, ObjectEventArgs e)
+        {
+            if (isInitializing) return;
+            try
+            {
+                if (e.DBObject is BlockReference || e.DBObject is Autodesk.AutoCAD.DatabaseServices.Polyline)
+                {
+                    this.Dispatcher.InvokeAsync(() => { TriggerPreviewInternal(); });
+                }
+            }
+            catch { }
+        }
+
+        private void Database_ObjectErased(object sender, ObjectErasedEventArgs e)
+        {
+            if (isInitializing) return;
+            try
+            {
+                if (e.DBObject is BlockReference || e.DBObject is Autodesk.AutoCAD.DatabaseServices.Polyline)
+                {
+                    this.Dispatcher.InvokeAsync(() => { TriggerPreviewInternal(); });
+                }
+            }
+            catch { }
+        }
+
+        private void rbPng_Checked(object sender, RoutedEventArgs e)
+        {
+
+        }
+    }
 }

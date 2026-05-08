@@ -1,15 +1,20 @@
-<Window x:Class="TPL.PdfEditorWindow"
+<Window
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="d" x:Class="TPL.PdfEditorWindow"
         Title="PDF Editor - TPL"
-        Width="900" Height="580"
-        MinWidth="700" MinHeight="450"
+        Width="970" Height="580"
+        MinWidth="900" MinHeight="580"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         Background="#181A1F"
         AllowsTransparency="False"
         ShowInTaskbar="True"
         ResizeMode="CanResizeWithGrip">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0"/>
+    </WindowChrome.WindowChrome>
 
     <Window.Resources>
         <!-- ─── Color Palette ─── -->
@@ -38,12 +43,12 @@
         <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}"/>
 
         <!-- ─── Custom Scrollbar (VS Code style, 8px thin) ─── -->
-        <Style x:Key="ScrollBarThumb" TargetType="Thumb">
+        <Style x:Key="ScrollBarThumb" TargetType="{x:Type Thumb}">
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="IsTabStop" Value="False"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Thumb">
+                    <ControlTemplate TargetType="{x:Type Thumb}">
                         <Border Background="{StaticResource ThumbBrush}" 
                                 CornerRadius="4" 
                                 Margin="1"/>
@@ -52,24 +57,24 @@
             </Setter>
         </Style>
 
-        <Style x:Key="ScrollBarPageButton" TargetType="RepeatButton">
+        <Style x:Key="ScrollBarPageButton" TargetType="{x:Type RepeatButton}">
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="IsTabStop" Value="False"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="RepeatButton">
+                    <ControlTemplate TargetType="{x:Type RepeatButton}">
                         <Rectangle Fill="Transparent"/>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <ControlTemplate x:Key="VerticalScrollBar" TargetType="ScrollBar">
+        <ControlTemplate x:Key="VerticalScrollBar" TargetType="{x:Type ScrollBar}">
             <Grid>
                 <Border Background="{StaticResource TrackBrush}" CornerRadius="4"/>
-                <Track Name="PART_Track" IsDirectionReversed="True">
+                <Track x:Name="PART_Track" IsDirectionReversed="True">
                     <Track.DecreaseRepeatButton>
                         <RepeatButton Style="{StaticResource ScrollBarPageButton}" Command="ScrollBar.PageUpCommand"/>
                     </Track.DecreaseRepeatButton>
@@ -83,12 +88,12 @@
             </Grid>
         </ControlTemplate>
 
-        <Style TargetType="ScrollBar">
+        <Style TargetType="{x:Type ScrollBar}">
             <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Style.Triggers>
                 <Trigger Property="Orientation" Value="Vertical">
-                    <Setter Property="Width" Value="8"/>
+                    <Setter Property="Width" Value="14"/>
                     <Setter Property="Height" Value="Auto"/>
                     <Setter Property="Template" Value="{StaticResource VerticalScrollBar}"/>
                 </Trigger>
@@ -96,7 +101,7 @@
         </Style>
 
         <!-- ─── Button Styles ─── -->
-        <Style x:Key="AccentButton" TargetType="Button">
+        <Style x:Key="AccentButton" TargetType="{x:Type Button}">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontFamily" Value="Segoe UI"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -106,7 +111,7 @@
             <Setter Property="Padding" Value="16,8"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
+                    <ControlTemplate TargetType="{x:Type Button}">
                         <Border x:Name="border" CornerRadius="6" Padding="{TemplateBinding Padding}"
                                 Background="{StaticResource AccentBrush}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -127,7 +132,7 @@
             </Setter>
         </Style>
 
-        <Style x:Key="DarkButton" TargetType="Button">
+        <Style x:Key="DarkButton" TargetType="{x:Type Button}">
             <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
             <Setter Property="FontFamily" Value="Segoe UI"/>
             <Setter Property="FontSize" Value="11.5"/>
@@ -136,7 +141,7 @@
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
+                    <ControlTemplate TargetType="{x:Type Button}">
                         <Border x:Name="border" CornerRadius="6" Padding="{TemplateBinding Padding}"
                                 Background="{StaticResource SurfaceBrush}" 
                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
@@ -158,10 +163,10 @@
             </Setter>
         </Style>
 
-        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource DarkButton}">
+        <Style x:Key="DangerButton" TargetType="{x:Type Button}" BasedOn="{StaticResource DarkButton}">
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
+                    <ControlTemplate TargetType="{x:Type Button}">
                         <Border x:Name="border" CornerRadius="6" Padding="{TemplateBinding Padding}"
                                 Background="#3B1C1C" BorderBrush="#5C2D2D" BorderThickness="1">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -181,7 +186,7 @@
         </Style>
 
         <!-- ─── TextBox Style ─── -->
-        <Style x:Key="DarkTextBox" TargetType="TextBox">
+        <Style x:Key="DarkTextBox" TargetType="{x:Type TextBox}">
             <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
             <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
             <Setter Property="CaretBrush" Value="{StaticResource FgBrush}"/>
@@ -192,7 +197,7 @@
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
+                    <ControlTemplate TargetType="{x:Type TextBox}">
                         <Border Background="{TemplateBinding Background}" 
                                 BorderBrush="{TemplateBinding BorderBrush}" 
                                 BorderThickness="{TemplateBinding BorderThickness}" 
@@ -209,8 +214,42 @@
             </Setter>
         </Style>
 
+        <!-- ─── GridViewColumnHeader Style ─── -->
+        <Style TargetType="{x:Type GridViewColumnHeader}">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource LabelBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type GridViewColumnHeader}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource ThumbBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{StaticResource BgBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ─── ListView Item (PDF Page row) ─── -->
-        <Style x:Key="PdfPageItemStyle" TargetType="ListViewItem">
+        <Style x:Key="PdfPageItemStyle" TargetType="{x:Type ListViewItem}">
             <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
             <Setter Property="FontFamily" Value="Segoe UI"/>
             <Setter Property="FontSize" Value="12"/>
@@ -219,7 +258,7 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="ListViewItem">
+                    <ControlTemplate TargetType="{x:Type ListViewItem}">
                         <Border x:Name="Bd" Background="{Binding RowBackgroundColorBrush}" 
                                 BorderBrush="Transparent" BorderThickness="1.5" 
                                 CornerRadius="4" Padding="4,4" Margin="2,1">
@@ -251,17 +290,32 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SourceLabel}" Value="DUMMY">
+                    <Setter Property="Height" Value="28"/>
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ListViewItem}">
+                                <Rectangle Margin="2" RadiusX="4" RadiusY="4" 
+                                           Stroke="#60A5FA" StrokeThickness="1.5" StrokeDashArray="4 3" 
+                                           Fill="#1560A5FA"/>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
 
         <!-- ─── ProgressBar Style ─── -->
-        <Style x:Key="SlimProgressBar" TargetType="ProgressBar">
+        <Style x:Key="SlimProgressBar" TargetType="{x:Type ProgressBar}">
             <Setter Property="Height" Value="6"/>
             <Setter Property="Background" Value="{StaticResource TrackBrush}"/>
             <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="ProgressBar">
+                    <ControlTemplate TargetType="{x:Type ProgressBar}">
                         <Border CornerRadius="3" Background="{TemplateBinding Background}" ClipToBounds="True">
                             <Border x:Name="PART_Indicator" CornerRadius="3" 
                                     Background="{TemplateBinding Foreground}"
@@ -280,10 +334,14 @@
 
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="40"/>   <!-- Title bar -->
-                <RowDefinition Height="*"/>    <!-- Content -->
-                <RowDefinition Height="Auto"/> <!-- Progress bar -->
-                <RowDefinition Height="Auto"/> <!-- Bottom bar -->
+                <RowDefinition Height="40"/>
+                <!-- Title bar -->
+                <RowDefinition Height="*"/>
+                <!-- Content -->
+                <RowDefinition Height="Auto"/>
+                <!-- Progress bar -->
+                <RowDefinition Height="Auto"/>
+                <!-- Bottom bar -->
             </Grid.RowDefinitions>
 
             <!-- ═══ TITLE BAR (draggable) ═══ -->
@@ -300,16 +358,23 @@
                                    Foreground="{StaticResource FgBrush}" FontSize="13" FontWeight="SemiBold" 
                                    VerticalAlignment="Center" FontFamily="Segoe UI"/>
                     </StackPanel>
+                    <Grid HorizontalAlignment="Left" Margin="774,0,0,0" Width="118">
+                        <StackPanel Margin="59,0,-65,0">
+                            <StackPanel Orientation="Horizontal" Height="40" Width="118">
+                                <Button x:Name="btnMinimize" Content="─" Width="36" Height="28" 
+                                    Style="{StaticResource DarkButton}" Padding="0" FontSize="12"
+                                    Click="BtnMinimize_Click" BorderThickness="0"/>
+                                <Button x:Name="btnMaximize" Content="☐" Width="36" Height="28" 
+                                    Style="{StaticResource DarkButton}" Padding="0" FontSize="14"
+                                    Click="BtnMaximize_Click" BorderThickness="0" Margin="5,0,0,0"/>
+                                <Button x:Name="btnClose" Content="✕" Width="36" Height="28" 
+                                    Style="{StaticResource DangerButton}" Padding="0" FontSize="11"
+                                    Click="BtnClose_Click" BorderThickness="0" Margin="5,0,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
 
                     <!-- Window controls -->
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,6,0">
-                        <Button x:Name="btnMinimize" Content="─" Width="36" Height="28" 
-                                Style="{StaticResource DarkButton}" Padding="0" FontSize="12"
-                                Click="BtnMinimize_Click" BorderThickness="0"/>
-                        <Button x:Name="btnClose" Content="✕" Width="36" Height="28" 
-                                Style="{StaticResource DangerButton}" Padding="0" FontSize="11"
-                                Click="BtnClose_Click" BorderThickness="0"/>
-                    </StackPanel>
                 </Grid>
             </Border>
 
@@ -324,28 +389,44 @@
                 <!-- ─── LEFT PANEL: Toolbar + Page List ─── -->
                 <Grid Grid.Column="0">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>  <!-- Toolbar -->
-                        <RowDefinition Height="*"/>     <!-- List -->
+                        <RowDefinition Height="Auto"/>
+                        <!-- Toolbar -->
+                        <RowDefinition Height="*"/>
+                        <!-- List -->
                     </Grid.RowDefinitions>
 
                     <!-- Toolbar -->
-                    <WrapPanel Grid.Row="0" Margin="0,0,0,8">
-                        <Button x:Name="btnPlusPlot" Content="＋ Plot" 
-                                Style="{StaticResource AccentButton}" Margin="0,0,6,0" FontSize="11"
-                                Padding="10,5" Click="BtnPlusPlot_Click"/>
-                        <Button x:Name="btnAdd" Content="Add" 
-                                Style="{StaticResource DarkButton}" Margin="0,0,6,0" FontSize="11"
-                                Padding="10,5" Click="BtnAdd_Click" FontWeight="Bold"/>
+
+                    <!-- PDF Page List with STT column -->
+                    <Grid Grid.Row="0" Margin="0,0,0,8" VerticalAlignment="Center">
+                        <Button x:Name="btnPlusPlot" Content="＋ PLOT" 
+                Style="{StaticResource AccentButton}" Margin="0,0,220,-28" FontSize="16"
+                Padding="10,5" Click="BtnPlusPlot_Click"/>
+                        <Button x:Name="btnAdd" Content="Import" 
+                Style="{StaticResource DarkButton}" Margin="85,0,0,1" FontSize="11"
+                Padding="10,5" Click="BtnAdd_Click" FontWeight="Bold" Height="26" HorizontalAlignment="Left" Width="100">
+                            <Button.BorderBrush>
+                                <SolidColorBrush Color="{DynamicResource TrackColor}"/>
+                            </Button.BorderBrush>
+                            <Button.Foreground>
+                                <SolidColorBrush Color="{DynamicResource SuccessColor}"/>
+                            </Button.Foreground>
+                            <Button.Background>
+                                <SolidColorBrush Color="{DynamicResource BorderColor}"/>
+                            </Button.Background>
+                        </Button>
+                        <CheckBox x:Name="chkSeparatePdfs" Content="Separate PDFs" Foreground="{StaticResource LabelBrush}" 
+                VerticalAlignment="Center" Margin="190,0,21,0" FontSize="11" />
                         <Button x:Name="btnRemove" Content="Remove" 
-                                Style="{StaticResource DangerButton}" Margin="0,0,6,0" FontSize="11"
-                                Padding="10,5" Click="BtnRemove_Click" FontWeight="Bold"/>
+                Style="{StaticResource DangerButton}" Margin="85,29,115,-28" FontSize="11"
+                Padding="10,5" Click="BtnRemove_Click" FontWeight="Bold" Width="100" Height="26"/>
                         <Button x:Name="btnUp" Content="▲" 
-                                Style="{StaticResource DarkButton}" Margin="0,0,4,0" FontSize="11"
-                                Padding="8,5" Width="34" Click="BtnUp_Click"/>
+                Style="{StaticResource DarkButton}" Margin="190,29,70,-28" FontSize="11"
+                Padding="8,5" Click="BtnUp_Click" Height="26"/>
                         <Button x:Name="btnDown" Content="▼" 
-                                Style="{StaticResource DarkButton}" FontSize="11"
-                                Padding="8,5" Width="34" Click="BtnDown_Click"/>
-                    </WrapPanel>
+                Style="{StaticResource DarkButton}" FontSize="11"
+                Padding="8,5" Click="BtnDown_Click" Margin="235,29,25,-28" Height="26"/>
+                    </Grid>
 
                     <!-- PDF Page List with STT column -->
                     <ListView x:Name="lstPages" Grid.Row="1"
@@ -360,25 +441,25 @@
                               DragOver="LstPages_DragOver"
                               Drop="LstPages_Drop"
                               ItemContainerStyle="{StaticResource PdfPageItemStyle}"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto" d:ItemsSource="{d:SampleData ItemCount=5}" Margin="0,27,0,0">
                         <ListView.View>
                             <GridView>
-                                <GridViewColumn Header="#" Width="36" 
+                                <GridViewColumn Header="#" Width="Auto" 
                                                 DisplayMemberBinding="{Binding SequenceNumber}"/>
-                                <GridViewColumn Header="" Width="8">
+                                <GridViewColumn Header="" Width="0">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Border Width="6" Height="18" CornerRadius="3"
+                                            <Border Width="10" Height="18" CornerRadius="3"
                                                     Background="{Binding GroupColorBrush}"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="Src" Width="42">
+                                <GridViewColumn Header="Source" Width="50">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <Border CornerRadius="3" Padding="4,1" HorizontalAlignment="Center">
                                                 <Border.Style>
-                                                    <Style TargetType="Border">
+                                                    <Style TargetType="{x:Type Border}">
                                                         <Setter Property="Background" Value="#1A2563EB"/>
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding SourceLabel}" Value="File">
@@ -390,7 +471,7 @@
                                                 <TextBlock Text="{Binding SourceLabel}" FontSize="9" 
                                                            FontWeight="SemiBold" HorizontalAlignment="Center">
                                                     <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
+                                                        <Style TargetType="{x:Type TextBlock}">
                                                             <Setter Property="Foreground" Value="#60A5FA"/>
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding SourceLabel}" Value="File">
@@ -404,7 +485,7 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="Page" Width="180" 
+                                <GridViewColumn Header="Page" Width="Auto" 
                                                 DisplayMemberBinding="{Binding DisplayName}"/>
                             </GridView>
                         </ListView.View>
@@ -449,7 +530,7 @@
                              Height="6" Background="{StaticResource TrackBrush}" 
                              Foreground="{StaticResource AccentBrush}" BorderThickness="0">
                     <ProgressBar.Template>
-                        <ControlTemplate TargetType="ProgressBar">
+                        <ControlTemplate TargetType="{x:Type ProgressBar}">
                             <Border CornerRadius="3" Background="{TemplateBinding Background}" ClipToBounds="True">
                                 <Border x:Name="PART_Indicator" CornerRadius="3" 
                                         Background="{TemplateBinding Foreground}"
@@ -474,14 +555,14 @@
                                 Width="100" Height="36" Margin="8,4,0,0"
                                 Click="BtnCancel_Click"/>
                     </StackPanel>
+                    <Grid DockPanel.Dock="Left" Height="50" Width="622">
+                        <TextBlock Text="File Name" Foreground="{StaticResource LabelBrush}" 
+                            FontSize="10" FontFamily="Segoe UI" Margin="343,-6,0,43" Width="279" HorizontalAlignment="Left"/>
+                        <TextBox x:Name="txtFileName" Style="{StaticResource DarkTextBox}" 
+                            Width="260" FontSize="12" HorizontalAlignment="Right" Margin="0,9,20,5"/>
+                    </Grid>
 
                     <!-- Left side: File name -->
-                    <StackPanel DockPanel.Dock="Left" Height="50">
-                        <TextBlock Text="File Name" Foreground="{StaticResource LabelBrush}" 
-                                   FontSize="10" FontFamily="Segoe UI" Margin="0,0,0,4" Width="279" HorizontalAlignment="Right"/>
-                        <TextBox x:Name="txtFileName" Style="{StaticResource DarkTextBox}" 
-                                 Width="260" Height="27" FontSize="12" HorizontalAlignment="Right" Margin="0,0,20,5"/>
-                    </StackPanel>
                 </DockPanel>
             </Border>
         </Grid>

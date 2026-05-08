@@ -251,10 +251,10 @@ namespace TPL
                         {
                             using (ViewTableRecord vtr = ed.GetCurrentView())
                             {
-                                Matrix3d matWCS2DCS = Matrix3d.WorldToPlane(vtr.ViewDirection) * 
-                                                      Matrix3d.Displacement(Point3d.Origin - vtr.Target) * 
+                                Matrix3d matWCS2DCS = Matrix3d.WorldToPlane(vtr.ViewDirection) *
+                                                      Matrix3d.Displacement(Point3d.Origin - vtr.Target) *
                                                       Matrix3d.Rotation(vtr.ViewTwist, vtr.ViewDirection, vtr.Target);
-                                
+
                                 Point3d p1 = new Point3d(frame.Extents.MinPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
                                 Point3d p2 = new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
                                 Point3d p3 = new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MaxPoint.Y, 0).TransformBy(matWCS2DCS);
@@ -444,14 +444,14 @@ namespace TPL
                             string pdfFile = generatedFiles[i];
                             string imgExt = settings.ImageFormat.ToLower();
                             string imgPath = Path.ChangeExtension(pdfFile, imgExt);
-                            
+
                             using (var docPdf = PdfiumViewer.PdfDocument.Load(pdfFile))
                             {
                                 // Auto-calculate size from DPI
                                 var size = docPdf.PageSizes[0];
                                 int width = (int)(size.Width * settings.ImageDpi / 72.0);
                                 int height = (int)(size.Height * settings.ImageDpi / 72.0);
-                                
+
                                 using (var image = docPdf.Render(0, width, height, settings.ImageDpi, settings.ImageDpi, PdfiumViewer.PdfRenderFlags.Annotations))
                                 {
                                     if (settings.ImageFormat == "JPG")
@@ -463,7 +463,7 @@ namespace TPL
                             imageFiles.Add(imgPath);
                             try { File.Delete(pdfFile); } catch { }
                         }
-                        
+
                         ed.WriteMessage($"\nConvert Image OK: {imageFiles.Count} files.");
                         if (imageFiles.Count > 0) finalPath = imageFiles[0];
                     }
@@ -476,7 +476,7 @@ namespace TPL
                         var editor = PdfEditorWindow.Instance;
                         editor.SetDefaultFileName(baseName);
                         editor.AddPdfFiles(generatedFiles);
-                        
+
                         if (Commands.MainFormInstance != null)
                             Commands.MainFormInstance.Hide();
 

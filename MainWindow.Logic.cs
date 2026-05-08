@@ -1,8 +1,6 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
-using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.GraphicsInterface;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -196,6 +194,14 @@ namespace TPL
         }
 
         // ── Select Manual ──
+        private void BtnDeleteManual_Click(object sender, RoutedEventArgs e)
+        {
+            tempManualSelectionIds.Clear();
+            _selectionDoc = null;
+            try { ClearPermanentMarkers(); } catch { }
+            UpdatePreview();
+        }
+
         private void BtnSelectManual_Click(object sender, RoutedEventArgs e)
         {
             var ds = BuildCurrentSettings();

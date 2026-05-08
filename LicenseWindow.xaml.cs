@@ -19,7 +19,7 @@ namespace TPL
         private void LoadLicenseData()
         {
             txtHwId.Text = _info.HardwareId;
-            
+
             if (_info.IsHardwareChanged)
             {
                 lblStatus.Text = "⚠️ Phát hiện thay đổi linh kiện phần cứng!\nBản quyền đã bị vô hiệu hoá.";

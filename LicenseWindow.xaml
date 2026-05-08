@@ -176,8 +176,8 @@
                 <TextBlock x:Name="lblStatus" Text="Trạng thái..." 
                            FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold"
                            TextWrapping="Wrap" Margin="0,0,0,20"/>
-                
-                <TextBlock Text="Mã phần cứng (Hardware ID):" Foreground="{StaticResource LabelBrush}" 
+
+                <TextBlock Text="Mã phần cứng (Hardware ID):" Foreground="{DynamicResource FgBrush}" 
                            FontSize="12" FontFamily="Segoe UI" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,15">
                     <Grid.ColumnDefinitions>
@@ -189,16 +189,15 @@
                             Margin="8,0,0,0" Width="80" Click="BtnCopy_Click"/>
                 </Grid>
 
-                <TextBlock Text="Mã kích hoạt (License Key):" Foreground="{StaticResource LabelBrush}" 
+                <TextBlock Text="Mã kích hoạt (License Key):" Foreground="{DynamicResource FgBrush}" 
                            FontSize="12" FontFamily="Segoe UI" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,20">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBox x:Name="txtKey" Grid.Column="0" Style="{StaticResource DarkTextBox}" />
-                    <Button Grid.Column="1" Content="Kích Hoạt" Style="{StaticResource AccentButton}" 
-                            Margin="8,0,0,0" Width="80" Click="BtnActivate_Click" FontSize="11"/>
+                    <TextBox x:Name="txtKey" Grid.Column="0" Style="{StaticResource DarkTextBox}" Margin="0,0,10,0" />
+                    <Button Grid.Column="1" Content="Kích Hoạt" Style="{StaticResource AccentButton}" Width="80" Click="BtnActivate_Click" FontSize="11" HorizontalAlignment="Right"/>
                 </Grid>
 
                 <!-- Footer Buttons -->
