@@ -196,6 +196,14 @@ namespace TPL
         }
 
         // ── Select Manual ──
+        private void BtnDeleteManual_Click(object sender, RoutedEventArgs e)
+        {
+            tempManualSelectionIds.Clear();
+            _selectionDoc = null;
+            try { ClearPermanentMarkers(); } catch { }
+            UpdatePreview();
+        }
+
         private void BtnSelectManual_Click(object sender, RoutedEventArgs e)
         {
             var ds = BuildCurrentSettings();

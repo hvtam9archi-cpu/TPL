@@ -11,10 +11,7 @@ namespace TPL
 
         public void Initialize()
         {
-            // The ribbon might not be ready when the plugin loads on startup
             ComponentManager.ItemInitialized += ComponentManager_ItemInitialized;
-            
-            // If ribbon is already loaded (e.g. netload)
             if (ComponentManager.Ribbon != null)
             {
                 CreateRibbon();
@@ -31,6 +28,51 @@ namespace TPL
             {
                 CreateRibbon();
                 ComponentManager.ItemInitialized -= ComponentManager_ItemInitialized;
+            }
+        }
+
+        [System.Runtime.InteropServices.DllImport("gdi32.dll")]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool DeleteObject(IntPtr hObject);
+
+        /// <summary>Load ảnh PNG trực tiếp từ assembly manifest stream và force resize bằng System.Drawing để chống lỗi scale/crop của AutoCAD.</summary>
+        private static System.Windows.Media.ImageSource LoadEmbeddedImage(string resourceName, int size)
+        {
+            try
+            {
+                var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                using (var stream = assembly.GetManifestResourceStream(resourceName))
+                {
+                    if (stream == null) return null;
+
+                    using (var drawingImg = System.Drawing.Image.FromStream(stream))
+                    {
+                        // Ép khung cứng về kích thước đích (32x32 hoặc 16x16)
+                        using (var bmp = new System.Drawing.Bitmap(drawingImg, new System.Drawing.Size(size, size)))
+                        {
+                            IntPtr hBitmap = bmp.GetHbitmap();
+                            try
+                            {
+                                var source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                                    hBitmap,
+                                    IntPtr.Zero,
+                                    System.Windows.Int32Rect.Empty,
+                                    System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+                                
+                                source.Freeze();
+                                return source;
+                            }
+                            finally
+                            {
+                                DeleteObject(hBitmap);
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                return null;
             }
         }
 
@@ -71,39 +113,53 @@ namespace TPL
                     panel.Source = panelSource;
                     tab.Panels.Add(panel);
 
-                    // 3. Command Handler
                     var cmdHandler = new RibbonCommandHandler();
 
-                    // 4. Button "TPL"
+                    // Load icons từ embedded resource với kích thước chuẩn xác
+                    System.Windows.Media.ImageSource tplIconLarge = null;
+                    System.Windows.Media.ImageSource tplIconSmall = null;
+                    System.Windows.Media.ImageSource licenseIconLarge = null;
+                    System.Windows.Media.ImageSource licenseIconSmall = null;
+
+                    try 
+                    { 
+                        tplIconLarge = LoadEmbeddedImage("TPL.Resource.IconRibbon_32px.png", 32); 
+                        tplIconSmall = LoadEmbeddedImage("TPL.Resource.IconRibbon_32px.png", 16);
+                        licenseIconLarge = LoadEmbeddedImage("TPL.Resource.IconRibbon_License_32px.png", 32); 
+                        licenseIconSmall = LoadEmbeddedImage("TPL.Resource.IconRibbon_License_32px.png", 16);
+                    } catch { }
+
+                    // 3. Button "TPL Plotter"
                     RibbonButton btnTpl = new RibbonButton();
-                    btnTpl.Text = "TPL";
+                    btnTpl.Text = "\nTPL Plotter"; // Thêm \n để hạ thấp text xuống 1 chút
                     btnTpl.ShowText = true;
                     btnTpl.ShowImage = true;
                     btnTpl.CommandParameter = "\x1B\x1BTPL "; // ESC ESC TPL
                     btnTpl.CommandHandler = cmdHandler;
                     btnTpl.Size = RibbonItemSize.Large;
                     btnTpl.Orientation = System.Windows.Controls.Orientation.Vertical;
-                    
-                    // You can add Icon here if you want:
-                    // btnTpl.LargeImage = LoadImage(...);
+                    if (tplIconLarge != null) btnTpl.LargeImage = tplIconLarge;
+                    if (tplIconSmall != null) btnTpl.Image = tplIconSmall;
 
-                    // 5. Button "TPL License"
+                    // 4. Button "TPL License"
                     RibbonButton btnLicense = new RibbonButton();
-                    btnLicense.Text = "TPL License";
+                    btnLicense.Text = "\nTPL License"; // Thêm \n để hạ thấp text xuống 1 chút
                     btnLicense.ShowText = true;
                     btnLicense.ShowImage = true;
                     btnLicense.CommandParameter = "\x1B\x1BTPL_LICENSE ";
                     btnLicense.CommandHandler = cmdHandler;
-                    btnLicense.Size = RibbonItemSize.Standard;
+                    btnLicense.Size = RibbonItemSize.Large;
+                    btnLicense.Orientation = System.Windows.Controls.Orientation.Vertical;
+                    if (licenseIconLarge != null) btnLicense.LargeImage = licenseIconLarge;
+                    if (licenseIconSmall != null) btnLicense.Image = licenseIconSmall;
 
-                    // Thêm vào Panel
+                    // Thêm vào Panel — bố cục hàng ngang (không dùng RibbonRowBreak)
                     panelSource.Items.Add(btnTpl);
-                    panelSource.Items.Add(new RibbonRowBreak());
                     panelSource.Items.Add(btnLicense);
                 }
-                
+
                 _isLoaded = true;
-                tab.IsActive = true; // (Tùy chọn) Nhảy tới tab này khi load
+                tab.IsActive = true;
             }
             catch (System.Exception ex)
             {

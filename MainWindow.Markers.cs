@@ -264,6 +264,7 @@ namespace TPL
             _previewDebounce?.Stop();
             QueueTransientsForCleanup();
             ClearPermanentMarkersGlobally();
+            try { UnsubscribeDatabaseEvents(); } catch { }
             base.OnClosed(e);
         }
     }
