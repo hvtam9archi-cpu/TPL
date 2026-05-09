@@ -39,6 +39,13 @@ namespace TPL
             TopRight
         }
 
+        public enum PlotOrientation
+        {
+            Auto,
+            Portrait,
+            Landscape
+        }
+
         public class PlotSettingsData
         {
             public string DeviceName { get; set; }
@@ -52,6 +59,7 @@ namespace TPL
             public SortOrder GroupOrder { get; set; } // ORD1
             public SortOrder CrossGroupOrder { get; set; } // ORD2
             public BasePoint SortBasePoint { get; set; }
+            public PlotOrientation Orientation { get; set; }
             public double Fuzz { get; set; }
             public bool MarkPlotRegions { get; set; }
             public bool MergePdfs { get; set; }

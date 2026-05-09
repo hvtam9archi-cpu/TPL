@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="d" x:Class="TPL.PdfEditorWindow"
         Title="PDF Editor - TPL"
-        Width="970" Height="580"
-        MinWidth="900" MinHeight="580"
+        Width="900" Height="500"
+        MinWidth="900" MinHeight="500"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         Background="#181A1F"
@@ -348,8 +348,13 @@
             <Border Grid.Row="0" Background="#12141A" CornerRadius="10,10,0,0"
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
-                        <!-- App icon -->
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: App icon + title -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
                         <Border Width="22" Height="22" CornerRadius="5" Background="{StaticResource AccentBrush}" Margin="0,0,10,0">
                             <TextBlock Text="P" Foreground="White" FontWeight="Bold" FontSize="13" 
                                        HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI"/>
@@ -358,30 +363,26 @@
                                    Foreground="{StaticResource FgBrush}" FontSize="13" FontWeight="SemiBold" 
                                    VerticalAlignment="Center" FontFamily="Segoe UI"/>
                     </StackPanel>
-                    <Grid HorizontalAlignment="Left" Margin="774,0,0,0" Width="118">
-                        <StackPanel Margin="59,0,-65,0">
-                            <StackPanel Orientation="Horizontal" Height="40" Width="118">
-                                <Button x:Name="btnMinimize" Content="─" Width="36" Height="28" 
-                                    Style="{StaticResource DarkButton}" Padding="0" FontSize="12"
-                                    Click="BtnMinimize_Click" BorderThickness="0"/>
-                                <Button x:Name="btnMaximize" Content="☐" Width="36" Height="28" 
-                                    Style="{StaticResource DarkButton}" Padding="0" FontSize="14"
-                                    Click="BtnMaximize_Click" BorderThickness="0" Margin="5,0,0,0"/>
-                                <Button x:Name="btnClose" Content="✕" Width="36" Height="28" 
-                                    Style="{StaticResource DangerButton}" Padding="0" FontSize="11"
-                                    Click="BtnClose_Click" BorderThickness="0" Margin="5,0,0,0"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Grid>
 
-                    <!-- Window controls -->
+                    <!-- Right: Window controls -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
+                        <Button x:Name="btnMinimize" Content="─" Width="36" Height="28" 
+                            Style="{StaticResource DarkButton}" Padding="0" FontSize="12"
+                            Click="BtnMinimize_Click" BorderThickness="0"/>
+                        <Button x:Name="btnMaximize" Content="☐" Width="36" Height="28" 
+                            Style="{StaticResource DarkButton}" Padding="0" FontSize="14"
+                            Click="BtnMaximize_Click" BorderThickness="0" Margin="5,0,0,0"/>
+                        <Button x:Name="btnClose" Content="✕" Width="36" Height="28" 
+                            Style="{StaticResource DangerButton}" Padding="0" FontSize="11"
+                            Click="BtnClose_Click" BorderThickness="0" Margin="5,0,0,0"/>
+                    </StackPanel>
                 </Grid>
             </Border>
 
             <!-- ═══ CONTENT ═══ -->
             <Grid Grid.Row="1" Margin="14,10,14,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="300" MinWidth="250"/>
+                    <ColumnDefinition Width="300" MinWidth="300"/>
                     <ColumnDefinition Width="8"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
@@ -395,38 +396,48 @@
                         <!-- List -->
                     </Grid.RowDefinitions>
 
-                    <!-- Toolbar -->
-
-                    <!-- PDF Page List with STT column -->
-                    <Grid Grid.Row="0" Margin="0,0,0,8" VerticalAlignment="Center">
-                        <Button x:Name="btnPlusPlot" Content="＋ PLOT" 
-                Style="{StaticResource AccentButton}" Margin="0,0,220,-28" FontSize="16"
-                Padding="10,5" Click="BtnPlusPlot_Click"/>
-                        <Button x:Name="btnAdd" Content="Import" 
-                Style="{StaticResource DarkButton}" Margin="85,0,0,1" FontSize="11"
-                Padding="10,5" Click="BtnAdd_Click" FontWeight="Bold" Height="26" HorizontalAlignment="Left" Width="100">
-                            <Button.BorderBrush>
-                                <SolidColorBrush Color="{DynamicResource TrackColor}"/>
-                            </Button.BorderBrush>
-                            <Button.Foreground>
-                                <SolidColorBrush Color="{DynamicResource SuccessColor}"/>
-                            </Button.Foreground>
-                            <Button.Background>
-                                <SolidColorBrush Color="{DynamicResource BorderColor}"/>
-                            </Button.Background>
-                        </Button>
-                        <CheckBox x:Name="chkSeparatePdfs" Content="Separate PDFs" Foreground="{StaticResource LabelBrush}" 
-                VerticalAlignment="Center" Margin="190,0,21,0" FontSize="11" />
-                        <Button x:Name="btnRemove" Content="Remove" 
-                Style="{StaticResource DangerButton}" Margin="85,29,115,-28" FontSize="11"
-                Padding="10,5" Click="BtnRemove_Click" FontWeight="Bold" Width="100" Height="26"/>
-                        <Button x:Name="btnUp" Content="▲" 
-                Style="{StaticResource DarkButton}" Margin="190,29,70,-28" FontSize="11"
-                Padding="8,5" Click="BtnUp_Click" Height="26"/>
-                        <Button x:Name="btnDown" Content="▼" 
-                Style="{StaticResource DarkButton}" FontSize="11"
-                Padding="8,5" Click="BtnDown_Click" Margin="235,29,25,-28" Height="26"/>
-                    </Grid>
+                    <!-- Toolbar: 2 rows, fixed layout -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,6">
+                        <!-- Row 1: Plot, Import, Separate PDFs -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4" Height="56">
+                            <Button x:Name="btnPlusPlot" Content="＋ PLOT" 
+                                    Style="{StaticResource AccentButton}" FontSize="13" FontWeight="Bold"
+                                    Width="80" Height="56" Padding="0" Click="BtnPlusPlot_Click" Margin="0,0,6,0"/>
+                            <Button x:Name="btnAdd" Content="Import" 
+                                    Style="{StaticResource DarkButton}" FontSize="11" FontWeight="Bold"
+                                    Width="100" Height="26" Padding="0" Click="BtnAdd_Click" Margin="0,-30,6,0">
+                                <Button.BorderBrush>
+                                    <SolidColorBrush Color="{DynamicResource TrackColor}"/>
+                                </Button.BorderBrush>
+                                <Button.Foreground>
+                                    <SolidColorBrush Color="{DynamicResource SuccessColor}"/>
+                                </Button.Foreground>
+                                <Button.Background>
+                                    <SolidColorBrush Color="{DynamicResource BorderColor}"/>
+                                </Button.Background>
+                            </Button>
+                            <CheckBox x:Name="chkSeparatePdfs" Content="Separate PDFs" 
+                                      Foreground="{StaticResource LabelBrush}" 
+                                      VerticalAlignment="Center" FontSize="11" Margin="0,-28,0,0"/>
+                        </StackPanel>
+                        <!-- Row 2: Remove, Up, Down, Rotate -->
+                        <StackPanel Orientation="Horizontal" Margin="0,-28,0,0">
+                            <Button x:Name="btnRemove" Content="Remove" 
+                                    Style="{StaticResource DangerButton}" FontSize="11" FontWeight="Bold"
+                                    Width="100" Height="26" Padding="0" Click="BtnRemove_Click" Margin="86,-5,6,0"/>
+                            <Button x:Name="btnUp" Content="▲" 
+                                    Style="{StaticResource DarkButton}" FontSize="11"
+                                    Width="34" Height="26" Padding="0" Click="BtnUp_Click" Margin="-1,-5,3,0"/>
+                            <Button x:Name="btnDown" Content="▼" 
+                                    Style="{StaticResource DarkButton}" FontSize="11"
+                                    Width="34" Height="26" Padding="0" Click="BtnDown_Click" Margin="0,-5,0,0"/>
+                            <Button x:Name="btnRotate" 
+                                    Style="{StaticResource DarkButton}" 
+                                    Width="34" Height="26" Padding="0" Click="BtnRotate_Click" Margin="3,-5,0,0" ToolTip="Rotate Clockwise">
+                                <Image Source="pack://application:,,,/TPL;component/Resource/IconRotate_32px.png" Width="14" Height="14" RenderOptions.BitmapScalingMode="HighQuality"/>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
 
                     <!-- PDF Page List with STT column -->
                     <ListView x:Name="lstPages" Grid.Row="1"
@@ -441,7 +452,7 @@
                               DragOver="LstPages_DragOver"
                               Drop="LstPages_Drop"
                               ItemContainerStyle="{StaticResource PdfPageItemStyle}"
-                              ScrollViewer.HorizontalScrollBarVisibility="Auto" d:ItemsSource="{d:SampleData ItemCount=5}" Margin="0,27,0,0">
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto" d:ItemsSource="{d:SampleData ItemCount=5}">
                         <ListView.View>
                             <GridView>
                                 <GridViewColumn Header="#" Width="Auto" 
@@ -454,7 +465,7 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="Source" Width="50">
+                                <GridViewColumn Header="Source" Width="Auto">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <Border CornerRadius="3" Padding="4,1" HorizontalAlignment="Center">
@@ -555,14 +566,13 @@
                                 Width="100" Height="36" Margin="8,4,0,0"
                                 Click="BtnCancel_Click"/>
                     </StackPanel>
-                    <Grid DockPanel.Dock="Left" Height="50" Width="622">
+                    <!-- Left side: File name (fills remaining space) -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
                         <TextBlock Text="File Name" Foreground="{StaticResource LabelBrush}" 
-                            FontSize="10" FontFamily="Segoe UI" Margin="343,-6,0,43" Width="279" HorizontalAlignment="Left"/>
+                            FontSize="10" FontFamily="Segoe UI" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBox x:Name="txtFileName" Style="{StaticResource DarkTextBox}" 
-                            Width="260" FontSize="12" HorizontalAlignment="Right" Margin="0,9,20,5"/>
-                    </Grid>
-
-                    <!-- Left side: File name -->
+                            Width="260" FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </DockPanel>
             </Border>
         </Grid>

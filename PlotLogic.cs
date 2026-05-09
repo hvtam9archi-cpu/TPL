@@ -410,6 +410,52 @@ namespace TPL
                 lblProg.Text = string.Format(L10n.T("prog_progress"), plotJobs.Count, plotJobs.Count);
                 progressForm.Update();
 
+                // Phase 2: Post-processing Orientation
+                if (settings.Orientation != PlotHelper.PlotOrientation.Auto && generatedFiles.Count > 0)
+                {
+                    lblSub.Text = "Applying Orientation..."; progressForm.Update();
+                    foreach (string pdfFile in generatedFiles)
+                    {
+                        if (!pdfFile.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) continue;
+                        try
+                        {
+                            using (var docPdf = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify))
+                            {
+                                bool modified = false;
+                                foreach (var page in docPdf.Pages)
+                                {
+                                    // Use raw MediaBox to avoid any PdfSharp version differences in page.Width
+                                    double rawWidth = page.MediaBox.Width;
+                                    double rawHeight = page.MediaBox.Height;
+                                    
+                                    // Calculate visual dimensions based on current Rotate
+                                    int currentRotate = page.Rotate;
+                                    bool isRotated = (Math.Abs(currentRotate) / 90) % 2 != 0;
+                                    
+                                    double visualWidth = isRotated ? rawHeight : rawWidth;
+                                    double visualHeight = isRotated ? rawWidth : rawHeight;
+
+                                    if (settings.Orientation == PlotHelper.PlotOrientation.Portrait && visualWidth > visualHeight)
+                                    {
+                                        page.Rotate = (currentRotate + 90) % 360; // 90 deg CW
+                                        modified = true;
+                                    }
+                                    else if (settings.Orientation == PlotHelper.PlotOrientation.Landscape && visualHeight > visualWidth)
+                                    {
+                                        page.Rotate = (currentRotate + 270) % 360; // 90 deg CCW
+                                        modified = true;
+                                    }
+                                }
+                                if (modified) docPdf.Save(pdfFile);
+                            }
+                        }
+                        catch (System.Exception ex)
+                        {
+                            ed.WriteMessage($"\nOrientation error on {pdfFile}: {ex.Message}");
+                        }
+                    }
+                }
+
                 string finalPath = generatedFiles.Count > 0 ? generatedFiles[0] : null;
                 if (settings.MergePdfs && generatedFiles.Count > 1
                     && generatedFiles.All(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)))

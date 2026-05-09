@@ -150,33 +150,72 @@ namespace TPL
             if (string.IsNullOrEmpty(styleName)) return;
             try
             {
-                string styleDir = "";
                 var doc = Application.DocumentManager.MdiActiveDocument;
-                if (doc != null)
-                {
-                    using (doc.LockDocument())
-                        styleDir = Path.Combine((string)Application.GetSystemVariable("ROAMABLEROOTPREFIX"), @"Plotters\Plot Styles");
-                }
+                if (doc == null) return;
+
+                // Tìm đường dẫn file CTB/STB
+                string styleDir = "";
+                using (doc.LockDocument())
+                    styleDir = Path.Combine((string)Application.GetSystemVariable("ROAMABLEROOTPREFIX"), @"Plotters\Plot Styles");
+
                 string path = Path.Combine(styleDir, styleName);
+
+                // Fallback 1: thư mục chia sẻ qua biến hệ thống
                 if (!File.Exists(path))
                 {
-                    string alt = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                        @"Autodesk\AutoCAD 2021\R24.0\enu\Plotters\Plot Styles", styleName);
-                    if (File.Exists(alt)) path = alt;
+                    try
+                    {
+                        string sharedDir = (string)Application.GetSystemVariable("PLOTSTYLEDIR");
+                        if (!string.IsNullOrEmpty(sharedDir))
+                        {
+                            string altPath = Path.Combine(sharedDir, styleName);
+                            if (File.Exists(altPath)) path = altPath;
+                        }
+                    }
+                    catch { }
                 }
-                if (File.Exists(path))
+
+                // Fallback 2: tìm styexe.exe trong thư mục cài đặt AutoCAD
+                string acadDir = Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);
+                string styExePath = Path.Combine(acadDir, "styexe.exe");
+
+                if (!File.Exists(path))
                 {
-                    string acadDir = Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);
-                    string styExe = Path.Combine(acadDir, "styexe.exe");
-                    if (File.Exists(styExe))
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = styExe, Arguments = "\"" + path + "\"", UseShellExecute = false });
-                    else
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = path, UseShellExecute = true });
+                    System.Windows.MessageBox.Show(
+                        $"Plot style file not found:\n\n" +
+                        $"File: {styleName}\n" +
+                        $"Searched in: {styleDir}",
+                        "TPL — Edit Plot Style", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // Ưu tiên dùng styexe.exe (trình chỉnh sửa CTB tích hợp của AutoCAD)
+                // Nếu không tìm thấy styexe.exe, dùng UseShellExecute để Windows tự chọn ứng dụng
+                if (File.Exists(styExePath))
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = styExePath,
+                        Arguments = "\"" + path + "\"",
+                        UseShellExecute = false
+                    });
+                }
+                else
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = path,
+                        UseShellExecute = true
+                    });
                 }
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show("Error: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    $"Cannot open Plot Style Editor.\n\n" +
+                    $"Style: {styleName}\n" +
+                    $"Error: {ex.GetType().Name}: {ex.Message}",
+                    "TPL — Edit Plot Style", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -237,8 +276,14 @@ namespace TPL
             data.ConvertToImage = chkConvertImage.IsChecked == true;
             data.PdfEditor = chkPdfEditor.IsChecked == true;
             data.ImageFormat = rbJpg.IsChecked == true ? "JPG" : "PNG";
-            data.ImageDpi = int.TryParse(txtDpi.Text, out int dpi) ? dpi : 300;
+            data.ImageDpi = int.TryParse(txtDpi.Text, out int dpi) ? dpi : 600;
             data.BaseFileName = txtFileName.Text;
+            if (rbOrientPortrait.IsChecked == true)
+                data.Orientation = PlotHelper.PlotOrientation.Portrait;
+            else if (rbOrientLandscape.IsChecked == true)
+                data.Orientation = PlotHelper.PlotOrientation.Landscape;
+            else
+                data.Orientation = PlotHelper.PlotOrientation.Auto;
             data.ManualSelectionIds = new List<ObjectId>(tempManualSelectionIds);
             return data;
         }

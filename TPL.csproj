@@ -30,6 +30,8 @@
 
   <ItemGroup>
     <Resource Include="Resource\StyleSettings_32px.ico" />
+    <Resource Include="Resource\IconRotate_32px.png" />
+    <Resource Include="Resource\IconRotate_32px.ico" />
     <EmbeddedResource Include="Resource\IconRibbon_32px.png" />
     <EmbeddedResource Include="Resource\IconRibbon_License_32px.png" />
   </ItemGroup>

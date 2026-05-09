@@ -56,6 +56,10 @@ namespace TPL
                 if (ls.ImageFormat == "JPG") rbJpg.IsChecked = true; else rbPng.IsChecked = true;
                 txtDpi.Text = ls.ImageDpi.ToString();
                 txtFileName.Text = ls.BaseFileName;
+                
+                if (ls.Orientation == PlotHelper.PlotOrientation.Portrait) rbOrientPortrait.IsChecked = true;
+                else if (ls.Orientation == PlotHelper.PlotOrientation.Landscape) rbOrientLandscape.IsChecked = true;
+                else rbOrientAuto.IsChecked = true;
             }
             else
             {

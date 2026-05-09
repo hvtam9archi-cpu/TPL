@@ -25,6 +25,7 @@ namespace TPL
 
         public string SourceFile { get; set; }
         public int PageIndex { get; set; }
+        public int RotationDelta { get; set; } = 0;
         public System.Drawing.Color GroupColor { get; set; }
         public string DisplayName { get; set; }
 
@@ -257,6 +258,17 @@ namespace TPL
         private void BtnMaximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
         private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
 
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape && WindowState == WindowState.Maximized)
+            {
+                WindowState = WindowState.Normal;
+                e.Handled = true;
+                return;
+            }
+            base.OnKeyDown(e);
+        }
+
         private bool _isReordering = false;
 
         // ─── Page Selection → Preview ───────────────────────────────────────
@@ -349,6 +361,42 @@ namespace TPL
         private void BtnUp_Click(object sender, RoutedEventArgs e) => MoveSelectedItems(-1);
         private void BtnDown_Click(object sender, RoutedEventArgs e) => MoveSelectedItems(1);
 
+        private void BtnRotate_Click(object sender, RoutedEventArgs e)
+        {
+            var selected = lstPages.SelectedItems.Cast<PdfPageViewModel>().ToList();
+            if (selected.Count == 0) return;
+
+            foreach (var item in selected)
+            {
+                item.RotationDelta = (item.RotationDelta + 90) % 360;
+
+                // Update preview data to show rotation immediately
+                try
+                {
+                    using (var ms = new MemoryStream(item.PreviewData))
+                    using (var doc = PdfReader.Open(ms, PdfDocumentOpenMode.Modify))
+                    {
+                        foreach (var page in doc.Pages)
+                        {
+                            page.Rotate = (page.Rotate + 90) % 360;
+                        }
+                        using (var outMs = new MemoryStream())
+                        {
+                            doc.Save(outMs);
+                            item.PreviewData = outMs.ToArray();
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[PdfEditor] Rotate error: {ex.Message}");
+                }
+            }
+
+            // Force refresh preview if a rotated item is currently viewed
+            LstPages_SelectionChanged(lstPages, null);
+        }
+
         private void MoveSelectedItems(int direction)
         {
             var selectedIndices = new List<int>();
@@ -440,12 +488,14 @@ namespace TPL
                                 {
                                     for (int p = 0; p < inDoc.PageCount; p++)
                                     {
-                                        outDoc.AddPage(inDoc.Pages[p]);
+                                        var newPage = outDoc.AddPage(inDoc.Pages[p]);
+                                        if (item.RotationDelta != 0) newPage.Rotate = (newPage.Rotate + item.RotationDelta) % 360;
                                     }
                                 }
                                 else
                                 {
-                                    outDoc.AddPage(inDoc.Pages[item.PageIndex]);
+                                    var newPage = outDoc.AddPage(inDoc.Pages[item.PageIndex]);
+                                    if (item.RotationDelta != 0) newPage.Rotate = (newPage.Rotate + item.RotationDelta) % 360;
                                 }
                             }
 

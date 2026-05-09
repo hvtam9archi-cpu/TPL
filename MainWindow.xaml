@@ -474,6 +474,17 @@
                             </Button>
                         </Grid>
                     </Border>
+
+                    <!-- Section 6: Orientation -->
+                    <TextBlock Text="6. ORIENTATION" Style="{StaticResource SectionHeader}" Margin="0,10,0,6" FontSize="12"/>
+                    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="6"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10,6">
+                        <StackPanel Orientation="Horizontal" Height="20">
+                            <RadioButton x:Name="rbOrientAuto" GroupName="Orientation" Content="Auto" IsChecked="True" Style="{StaticResource DarkRadio}" Margin="0,0,10,0" FontSize="11" />
+                            <RadioButton x:Name="rbOrientPortrait" GroupName="Orientation" Content="Portrait" Style="{StaticResource DarkRadio}" Margin="0,0,10,0" FontSize="11" />
+                            <RadioButton x:Name="rbOrientLandscape" GroupName="Orientation" Content="Landscape" Style="{StaticResource DarkRadio}" FontSize="11" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Grid>
 
