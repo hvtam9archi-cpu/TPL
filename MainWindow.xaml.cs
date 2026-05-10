@@ -99,6 +99,7 @@ namespace TPL
             {
                 if (chkConvertImage != null) chkConvertImage.IsChecked = false;
                 if (chkPdfEditor != null) chkPdfEditor.IsChecked = false;
+                if (chkOpenPdf != null) chkOpenPdf.IsChecked = true;
             }
         }
         private void ChkConvertImage_Changed(object sender, RoutedEventArgs e)
@@ -108,6 +109,7 @@ namespace TPL
             {
                 if (chkMergePdf != null) chkMergePdf.IsChecked = false;
                 if (chkPdfEditor != null) chkPdfEditor.IsChecked = false;
+                if (chkOpenPdf != null) chkOpenPdf.IsChecked = false;
             }
             if (pnlImgFormat != null) pnlImgFormat.IsEnabled = chkConvertImage.IsChecked == true;
         }
@@ -118,6 +120,7 @@ namespace TPL
             {
                 if (chkMergePdf != null) chkMergePdf.IsChecked = false;
                 if (chkConvertImage != null) chkConvertImage.IsChecked = false;
+                if (chkOpenPdf != null) chkOpenPdf.IsChecked = false;
             }
         }
 

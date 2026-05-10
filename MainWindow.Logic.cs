@@ -69,6 +69,15 @@ namespace TPL
                 SelectComboItem(cbStyles, "monochrome.ctb");
                 SelectComboItem(cbPapers, "ISO full bleed A3 (420.00 x 297.00 MM)");
                 txtPath.Text = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                chkMergePdf.IsChecked = true;
+                chkOpenPdf.IsChecked = true;
+                chkConvertImage.IsChecked = false;
+                chkPdfEditor.IsChecked = false;
+            }
+
+            if (pnlImgFormat != null)
+            {
+                pnlImgFormat.IsEnabled = chkConvertImage.IsChecked == true;
             }
         }
 
