@@ -53,12 +53,10 @@ namespace TPL
                 }
                 if (currentDoc != null)
                 {
-                    using (var docLock = currentDoc.LockDocument())
-                    {
-                        var tm = TransientManager.CurrentTransientManager;
-                        foreach (var obj in transientObjects)
-                        { try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
-                    }
+                    using var docLock = currentDoc.LockDocument();
+                    var tm = TransientManager.CurrentTransientManager;
+                    foreach (var obj in transientObjects)
+                    { try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
                 }
                 transientObjects.Clear();
             }
@@ -104,35 +102,37 @@ namespace TPL
             {
                 Document doc = Application.DocumentManager.MdiActiveDocument;
                 if (doc == null) return;
-                using (var docLock = doc.LockDocument())
+                using var docLock = doc.LockDocument();
+                string curLayout = LayoutManager.Current.CurrentLayout;
+                var tm = TransientManager.CurrentTransientManager;
+                _markerDoc = doc;
+                for (int i = 0; i < frames.Count; i++)
                 {
-                    string curLayout = LayoutManager.Current.CurrentLayout;
-                    var tm = TransientManager.CurrentTransientManager;
-                    _markerDoc = doc;
-                    for (int i = 0; i < frames.Count; i++)
+                    var frame = frames[i];
+                    if (frame.LayoutName != curLayout) continue;
+                    double lenX = frame.Extents.MaxPoint.X - frame.Extents.MinPoint.X;
+                    double lenY = frame.Extents.MaxPoint.Y - frame.Extents.MinPoint.Y;
+                    if (lenX <= 0 || lenY <= 0) continue;
+
+                    var txt = new MText
                     {
-                        var frame = frames[i];
-                        if (frame.LayoutName != curLayout) continue;
-                        double lenX = frame.Extents.MaxPoint.X - frame.Extents.MinPoint.X;
-                        double lenY = frame.Extents.MaxPoint.Y - frame.Extents.MinPoint.Y;
-                        if (lenX <= 0 || lenY <= 0) continue;
+                        Contents = "{\\fVerdana|b0|i0|c0|p0;" + (i + 1) + "}",
+                        TextHeight = Math.Min(lenX, lenY) / 5.0,
+                        Location = new Point3d((frame.Extents.MinPoint.X + frame.Extents.MaxPoint.X) / 2, (frame.Extents.MinPoint.Y + frame.Extents.MaxPoint.Y) / 2, 0),
+                        Attachment = AttachmentPoint.MiddleCenter,
+                        ColorIndex = 1
+                    };
+                    tm.AddTransient(txt, TransientDrawingMode.Main, 128, new IntegerCollection());
+                    transientObjects.Add(txt);
 
-                        var txt = new MText();
-                        txt.Contents = "{\\fVerdana|b0|i0|c0|p0;" + (i + 1) + "}";
-                        txt.TextHeight = Math.Min(lenX, lenY) / 5.0;
-                        txt.Location = new Point3d((frame.Extents.MinPoint.X + frame.Extents.MaxPoint.X) / 2, (frame.Extents.MinPoint.Y + frame.Extents.MaxPoint.Y) / 2, 0);
-                        txt.Attachment = AttachmentPoint.MiddleCenter;
-                        txt.ColorIndex = 1;
-                        tm.AddTransient(txt, TransientDrawingMode.Main, 128, new IntegerCollection());
-                        transientObjects.Add(txt);
-
-                        var line = new Line(new Point3d(frame.Extents.MinPoint.X, frame.Extents.MaxPoint.Y, 0), new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0));
-                        line.ColorIndex = 1;
-                        tm.AddTransient(line, TransientDrawingMode.Main, 128, new IntegerCollection());
-                        transientObjects.Add(line);
-                    }
-                    doc.Editor.UpdateScreen();
+                    var line = new Line(new Point3d(frame.Extents.MinPoint.X, frame.Extents.MaxPoint.Y, 0), new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0))
+                    {
+                        ColorIndex = 1
+                    };
+                    tm.AddTransient(line, TransientDrawingMode.Main, 128, new IntegerCollection());
+                    transientObjects.Add(line);
                 }
+                doc.Editor.UpdateScreen();
             }
             catch { ClearTransientMarkers(); }
         }
@@ -151,8 +151,12 @@ namespace TPL
                     if (!lt.Has("TPL_MARKERS"))
                     {
                         lt.UpgradeOpen();
-                        var ltr = new LayerTableRecord { Name = "TPL_MARKERS", IsPlottable = false };
-                        ltr.Color = Autodesk.AutoCAD.Colors.Color.FromColorIndex(Autodesk.AutoCAD.Colors.ColorMethod.ByAci, 1);
+                        var ltr = new LayerTableRecord
+                        {
+                            Name = "TPL_MARKERS",
+                            IsPlottable = false,
+                            Color = Autodesk.AutoCAD.Colors.Color.FromColorIndex(Autodesk.AutoCAD.Colors.ColorMethod.ByAci, 1)
+                        };
                         lt.Add(ltr); tr.AddNewlyCreatedDBObject(ltr, true);
                     }
                     string curLayout = LayoutManager.Current.CurrentLayout;
@@ -165,16 +169,22 @@ namespace TPL
                         double lenY = frame.Extents.MaxPoint.Y - frame.Extents.MinPoint.Y;
                         if (lenX <= 0 || lenY <= 0) continue;
 
-                        var line = new Line(new Point3d(frame.Extents.MinPoint.X, frame.Extents.MaxPoint.Y, 0), new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0));
-                        line.Layer = "TPL_MARKERS"; line.ColorIndex = 1;
+                        var line = new Line(new Point3d(frame.Extents.MinPoint.X, frame.Extents.MaxPoint.Y, 0), new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0))
+                        {
+                            Layer = "TPL_MARKERS",
+                            ColorIndex = 1
+                        };
                         btr.AppendEntity(line); tr.AddNewlyCreatedDBObject(line, true);
 
-                        var txt = new MText();
-                        txt.Layer = "TPL_MARKERS";
-                        txt.Contents = "{\\fVerdana|b0|i0|c0|p0;" + (i + 1) + "}";
-                        txt.TextHeight = Math.Min(lenX, lenY) / 5.0;
-                        txt.Location = new Point3d((frame.Extents.MinPoint.X + frame.Extents.MaxPoint.X) / 2, (frame.Extents.MinPoint.Y + frame.Extents.MaxPoint.Y) / 2, 0);
-                        txt.Attachment = AttachmentPoint.MiddleCenter; txt.ColorIndex = 1;
+                        var txt = new MText
+                        {
+                            Layer = "TPL_MARKERS",
+                            Contents = "{\\fVerdana|b0|i0|c0|p0;" + (i + 1) + "}",
+                            TextHeight = Math.Min(lenX, lenY) / 5.0,
+                            Location = new Point3d((frame.Extents.MinPoint.X + frame.Extents.MaxPoint.X) / 2, (frame.Extents.MinPoint.Y + frame.Extents.MaxPoint.Y) / 2, 0),
+                            Attachment = AttachmentPoint.MiddleCenter,
+                            ColorIndex = 1
+                        };
                         btr.AppendEntity(txt); tr.AddNewlyCreatedDBObject(txt, true);
                     }
                     tr.Commit();
@@ -197,9 +207,9 @@ namespace TPL
                     {
                         try
                         {
-                            using (var docLock = _markerDoc.LockDocument())
-                                foreach (var obj in transientObjects)
-                                { try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
+                            using var docLock = _markerDoc.LockDocument();
+                            foreach (var obj in transientObjects)
+                            { try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
                         }
                         catch { }
                     }
@@ -214,9 +224,9 @@ namespace TPL
                 {
                     try
                     {
-                        using (var docLock = currentDoc.LockDocument())
-                            foreach (var obj in list)
-                            { try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
+                        using var docLock = currentDoc.LockDocument();
+                        foreach (var obj in list)
+                        { try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
                     }
                     catch { }
                     _pendingTransients.Remove(currentDoc);

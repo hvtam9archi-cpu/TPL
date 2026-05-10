@@ -148,7 +148,7 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="40"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="260"/>
             </Grid.RowDefinitions>
 
             <!-- TITLE BAR -->

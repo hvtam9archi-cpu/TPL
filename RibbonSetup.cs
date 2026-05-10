@@ -41,33 +41,27 @@ namespace TPL
             try
             {
                 var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-                using (var stream = assembly.GetManifestResourceStream(resourceName))
+                using var stream = assembly.GetManifestResourceStream(resourceName);
+                if (stream == null) return null;
+
+                using var drawingImg = System.Drawing.Image.FromStream(stream);
+                // Ép khung cứng về kích thước đích (32x32 hoặc 16x16)
+                using var bmp = new System.Drawing.Bitmap(drawingImg, new System.Drawing.Size(size, size));
+                IntPtr hBitmap = bmp.GetHbitmap();
+                try
                 {
-                    if (stream == null) return null;
+                    var source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                        hBitmap,
+                        IntPtr.Zero,
+                        System.Windows.Int32Rect.Empty,
+                        System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
 
-                    using (var drawingImg = System.Drawing.Image.FromStream(stream))
-                    {
-                        // Ép khung cứng về kích thước đích (32x32 hoặc 16x16)
-                        using (var bmp = new System.Drawing.Bitmap(drawingImg, new System.Drawing.Size(size, size)))
-                        {
-                            IntPtr hBitmap = bmp.GetHbitmap();
-                            try
-                            {
-                                var source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
-                                    hBitmap,
-                                    IntPtr.Zero,
-                                    System.Windows.Int32Rect.Empty,
-                                    System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
-
-                                source.Freeze();
-                                return source;
-                            }
-                            finally
-                            {
-                                DeleteObject(hBitmap);
-                            }
-                        }
-                    }
+                    source.Freeze();
+                    return source;
+                }
+                finally
+                {
+                    DeleteObject(hBitmap);
                 }
             }
             catch
@@ -87,9 +81,11 @@ namespace TPL
                 RibbonTab tab = ribbon.FindTab("TH_TOOLS_TAB");
                 if (tab == null)
                 {
-                    tab = new RibbonTab();
-                    tab.Title = "TH Tools";
-                    tab.Id = "TH_TOOLS_TAB";
+                    tab = new RibbonTab
+                    {
+                        Title = "TH Tools",
+                        Id = "TH_TOOLS_TAB"
+                    };
                     ribbon.Tabs.Add(tab);
                 }
 
@@ -107,10 +103,14 @@ namespace TPL
                 if (!hasPanel)
                 {
                     // 2. Panel "TPL Plotter"
-                    RibbonPanelSource panelSource = new RibbonPanelSource();
-                    panelSource.Title = "TPL Plotter";
-                    RibbonPanel panel = new RibbonPanel();
-                    panel.Source = panelSource;
+                    RibbonPanelSource panelSource = new()
+                    {
+                        Title = "TPL Plotter"
+                    };
+                    RibbonPanel panel = new()
+                    {
+                        Source = panelSource
+                    };
                     tab.Panels.Add(panel);
 
                     var cmdHandler = new RibbonCommandHandler();
@@ -131,26 +131,30 @@ namespace TPL
                     catch { }
 
                     // 3. Button "TPL Plotter"
-                    RibbonButton btnTpl = new RibbonButton();
-                    btnTpl.Text = "\nTPL Plotter"; // Thêm \n để hạ thấp text xuống 1 chút
-                    btnTpl.ShowText = true;
-                    btnTpl.ShowImage = true;
-                    btnTpl.CommandParameter = "\x1B\x1BTPL "; // ESC ESC TPL
-                    btnTpl.CommandHandler = cmdHandler;
-                    btnTpl.Size = RibbonItemSize.Large;
-                    btnTpl.Orientation = System.Windows.Controls.Orientation.Vertical;
+                    RibbonButton btnTpl = new()
+                    {
+                        Text = "\nTPL Plotter", // Thêm \n để hạ thấp text xuống 1 chút
+                        ShowText = true,
+                        ShowImage = true,
+                        CommandParameter = "\x1B\x1BTPL ", // ESC ESC TPL
+                        CommandHandler = cmdHandler,
+                        Size = RibbonItemSize.Large,
+                        Orientation = System.Windows.Controls.Orientation.Vertical
+                    };
                     if (tplIconLarge != null) btnTpl.LargeImage = tplIconLarge;
                     if (tplIconSmall != null) btnTpl.Image = tplIconSmall;
 
                     // 4. Button "TPL License"
-                    RibbonButton btnLicense = new RibbonButton();
-                    btnLicense.Text = "\nTPL License"; // Thêm \n để hạ thấp text xuống 1 chút
-                    btnLicense.ShowText = true;
-                    btnLicense.ShowImage = true;
-                    btnLicense.CommandParameter = "\x1B\x1BTPL_LICENSE ";
-                    btnLicense.CommandHandler = cmdHandler;
-                    btnLicense.Size = RibbonItemSize.Large;
-                    btnLicense.Orientation = System.Windows.Controls.Orientation.Vertical;
+                    RibbonButton btnLicense = new()
+                    {
+                        Text = "\nTPL License", // Thêm \n để hạ thấp text xuống 1 chút
+                        ShowText = true,
+                        ShowImage = true,
+                        CommandParameter = "\x1B\x1BTPL_LICENSE ",
+                        CommandHandler = cmdHandler,
+                        Size = RibbonItemSize.Large,
+                        Orientation = System.Windows.Controls.Orientation.Vertical
+                    };
                     if (licenseIconLarge != null) btnLicense.LargeImage = licenseIconLarge;
                     if (licenseIconSmall != null) btnLicense.Image = licenseIconSmall;
 
@@ -181,10 +185,7 @@ namespace TPL
             if (parameter is RibbonButton button && button.CommandParameter != null)
             {
                 Document doc = Application.DocumentManager.MdiActiveDocument;
-                if (doc != null)
-                {
-                    doc.SendStringToExecute((string)button.CommandParameter, true, false, false);
-                }
+                doc?.SendStringToExecute((string)button.CommandParameter, true, false, false);
             }
         }
     }

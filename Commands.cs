@@ -44,8 +44,10 @@ namespace TPL
                         var acWin = Application.MainWindow;
                         if (acWin != null)
                         {
-                            var helper = new System.Windows.Interop.WindowInteropHelper(_mainWindow);
-                            helper.Owner = acWin.Handle;
+                            var helper = new System.Windows.Interop.WindowInteropHelper(_mainWindow)
+                            {
+                                Owner = acWin.Handle
+                            };
                         }
                     }
                     catch { /* Bỏ qua nếu không lấy được HWND */ }
@@ -61,7 +63,7 @@ namespace TPL
                 try
                 {
                     var ed = Application.DocumentManager.MdiActiveDocument?.Editor;
-                    ed?.WriteMessage($"\n[TPL] Error: {ex.ToString()}\n");
+                    ed?.WriteMessage($"\n[TPL] Error: {ex}\n");
                 }
                 catch { }
             }

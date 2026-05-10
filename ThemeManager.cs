@@ -10,12 +10,10 @@ namespace TPL
         {
             try
             {
-                using (var key = Registry.CurrentUser.OpenSubKey(
-                    @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
-                {
-                    if (key?.GetValue("AppsUseLightTheme") is int val)
-                        return val == 0;
-                }
+                using var key = Registry.CurrentUser.OpenSubKey(
+                    @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+                if (key?.GetValue("AppsUseLightTheme") is int val)
+                    return val == 0;
             }
             catch { }
             return false;
@@ -102,20 +100,18 @@ namespace TPL
         /// <summary>Creates a simple programmatic icon for the dialog window.</summary>
         public static System.Drawing.Icon CreateAppIcon()
         {
-            using (var bmp = new Bitmap(32, 32))
-            using (var g = Graphics.FromImage(bmp))
+            using var bmp = new Bitmap(32, 32);
+            using var g = Graphics.FromImage(bmp);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.Clear(Accent);
+            // Draw "P" centered
+            using (var font = new Font("Segoe UI", 16, FontStyle.Bold, GraphicsUnit.Pixel))
+            using (var brush = new SolidBrush(Color.White))
             {
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                g.Clear(Accent);
-                // Draw "P" centered
-                using (var font = new Font("Segoe UI", 16, FontStyle.Bold, GraphicsUnit.Pixel))
-                using (var brush = new SolidBrush(Color.White))
-                {
-                    var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                    g.DrawString("P", font, brush, new RectangleF(0, 0, 32, 32), sf);
-                }
-                return System.Drawing.Icon.FromHandle(bmp.GetHicon());
+                var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                g.DrawString("P", font, brush, new RectangleF(0, 0, 32, 32), sf);
             }
+            return System.Drawing.Icon.FromHandle(bmp.GetHicon());
         }
     }
 }

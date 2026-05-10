@@ -22,14 +22,14 @@ namespace TPL
 
         public Point3d GetBasePoint(PlotHelper.BasePoint bpType)
         {
-            switch (bpType)
+            return bpType switch
             {
-                case PlotHelper.BasePoint.BottomLeft: return new Point3d(Extents.MinPoint.X, Extents.MinPoint.Y, 0);
-                case PlotHelper.BasePoint.BottomRight: return new Point3d(Extents.MaxPoint.X, Extents.MinPoint.Y, 0);
-                case PlotHelper.BasePoint.TopLeft: return new Point3d(Extents.MinPoint.X, Extents.MaxPoint.Y, 0);
-                case PlotHelper.BasePoint.TopRight: return new Point3d(Extents.MaxPoint.X, Extents.MaxPoint.Y, 0);
-                default: return Extents.MinPoint;
-            }
+                PlotHelper.BasePoint.BottomLeft => new Point3d(Extents.MinPoint.X, Extents.MinPoint.Y, 0),
+                PlotHelper.BasePoint.BottomRight => new Point3d(Extents.MaxPoint.X, Extents.MinPoint.Y, 0),
+                PlotHelper.BasePoint.TopLeft => new Point3d(Extents.MinPoint.X, Extents.MaxPoint.Y, 0),
+                PlotHelper.BasePoint.TopRight => new Point3d(Extents.MaxPoint.X, Extents.MaxPoint.Y, 0),
+                _ => Extents.MinPoint,
+            };
         }
     }
 
@@ -40,7 +40,7 @@ namespace TPL
             Document doc = Application.DocumentManager.MdiActiveDocument;
             Database db = doc.Database;
             Editor ed = doc.Editor;
-            List<PlotFrame> frames = new List<PlotFrame>();
+            List<PlotFrame> frames = new();
 
             using (Transaction tr = db.TransactionManager.StartTransaction())
             {
@@ -59,7 +59,7 @@ namespace TPL
                 {
                     string currentLayout = LayoutManager.Current.CurrentLayout;
                     TypedValue[] filter = GetFilter(settings);
-                    SelectionFilter selFilter = new SelectionFilter(filter);
+                    SelectionFilter selFilter = new(filter);
                     PromptSelectionResult psr = ed.SelectAll(selFilter);
 
                     if (psr.Status == PromptStatus.OK)
@@ -94,15 +94,15 @@ namespace TPL
         {
             if (settings.FrameType == PlotHelper.FrameType.Block)
             {
-                return new TypedValue[] { new TypedValue((int)DxfCode.Start, "INSERT") };
+                return new TypedValue[] { new((int)DxfCode.Start, "INSERT") };
             }
             else
             {
                 string layerNames = string.Join(",", settings.FrameNames);
                 if (string.IsNullOrEmpty(layerNames)) layerNames = "*";
                 return new TypedValue[] {
-                    new TypedValue((int)DxfCode.Start, "LWPOLYLINE"),
-                    new TypedValue((int)DxfCode.LayerName, layerNames)
+                    new((int)DxfCode.Start, "LWPOLYLINE"),
+                    new((int)DxfCode.LayerName, layerNames)
                 };
             }
         }
@@ -232,74 +232,70 @@ namespace TPL
             var plotJobs = new List<(string LayoutName, ObjectId LayoutId, bool ModelType, PlotSettings Ps, Extents3d Extents)>();
             try
             {
-                using (Transaction tr = db.TransactionManager.StartTransaction())
+                using Transaction tr = db.TransactionManager.StartTransaction();
+                foreach (var frame in frames)
                 {
-                    foreach (var frame in frames)
+                    ObjectId layId = LayoutManager.Current.GetLayoutId(frame.LayoutName);
+                    Layout lay = (Layout)tr.GetObject(layId, OpenMode.ForRead);
+                    PlotSettings ps = new(lay.ModelType);
+                    ps.CopyFrom(lay);
+                    PlotSettingsValidator psv = PlotSettingsValidator.Current;
+
+                    // 1. Set Device and Paper Size FIRST
+                    try { psv.SetPlotConfigurationName(ps, settings.DeviceName, settings.PaperSize.Replace(" ", "_")); } catch { }
+
+                    // 2. Set PlotWindowArea (dummy or real) BEFORE PlotType
+                    Extents2d plotExt;
+                    if (lay.ModelType)
                     {
-                        ObjectId layId = LayoutManager.Current.GetLayoutId(frame.LayoutName);
-                        Layout lay = (Layout)tr.GetObject(layId, OpenMode.ForRead);
-                        PlotSettings ps = new PlotSettings(lay.ModelType);
-                        ps.CopyFrom(lay);
-                        PlotSettingsValidator psv = PlotSettingsValidator.Current;
+                        using ViewTableRecord vtr = ed.GetCurrentView();
+                        Matrix3d matWCS2DCS = Matrix3d.WorldToPlane(vtr.ViewDirection) *
+                                              Matrix3d.Displacement(Point3d.Origin - vtr.Target) *
+                                              Matrix3d.Rotation(vtr.ViewTwist, vtr.ViewDirection, vtr.Target);
 
-                        // 1. Set Device and Paper Size FIRST
-                        try { psv.SetPlotConfigurationName(ps, settings.DeviceName, settings.PaperSize.Replace(" ", "_")); } catch { }
+                        Point3d p1 = new Point3d(frame.Extents.MinPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
+                        Point3d p2 = new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
+                        Point3d p3 = new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MaxPoint.Y, 0).TransformBy(matWCS2DCS);
+                        Point3d p4 = new Point3d(frame.Extents.MinPoint.X, frame.Extents.MaxPoint.Y, 0).TransformBy(matWCS2DCS);
 
-                        // 2. Set PlotWindowArea (dummy or real) BEFORE PlotType
-                        Extents2d plotExt;
-                        if (lay.ModelType)
-                        {
-                            using (ViewTableRecord vtr = ed.GetCurrentView())
-                            {
-                                Matrix3d matWCS2DCS = Matrix3d.WorldToPlane(vtr.ViewDirection) *
-                                                      Matrix3d.Displacement(Point3d.Origin - vtr.Target) *
-                                                      Matrix3d.Rotation(vtr.ViewTwist, vtr.ViewDirection, vtr.Target);
+                        double minX = Math.Min(Math.Min(p1.X, p2.X), Math.Min(p3.X, p4.X));
+                        double minY = Math.Min(Math.Min(p1.Y, p2.Y), Math.Min(p3.Y, p4.Y));
+                        double maxX = Math.Max(Math.Max(p1.X, p2.X), Math.Max(p3.X, p4.X));
+                        double maxY = Math.Max(Math.Max(p1.Y, p2.Y), Math.Max(p3.Y, p4.Y));
 
-                                Point3d p1 = new Point3d(frame.Extents.MinPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
-                                Point3d p2 = new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
-                                Point3d p3 = new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MaxPoint.Y, 0).TransformBy(matWCS2DCS);
-                                Point3d p4 = new Point3d(frame.Extents.MinPoint.X, frame.Extents.MaxPoint.Y, 0).TransformBy(matWCS2DCS);
-
-                                double minX = Math.Min(Math.Min(p1.X, p2.X), Math.Min(p3.X, p4.X));
-                                double minY = Math.Min(Math.Min(p1.Y, p2.Y), Math.Min(p3.Y, p4.Y));
-                                double maxX = Math.Max(Math.Max(p1.X, p2.X), Math.Max(p3.X, p4.X));
-                                double maxY = Math.Max(Math.Max(p1.Y, p2.Y), Math.Max(p3.Y, p4.Y));
-
-                                plotExt = new Extents2d(minX, minY, maxX, maxY);
-                            }
-                        }
-                        else
-                        {
-                            plotExt = new Extents2d(frame.Extents.MinPoint.X, frame.Extents.MinPoint.Y, frame.Extents.MaxPoint.X, frame.Extents.MaxPoint.Y);
-                        }
-                        psv.SetPlotWindowArea(ps, plotExt);
-
-                        // 3. Set PlotType
-                        psv.SetPlotType(ps, Autodesk.AutoCAD.DatabaseServices.PlotType.Window);
-
-                        // 4. Set PlotWindowArea AGAIN to ensure it isn't reset by PlotType
-                        psv.SetPlotWindowArea(ps, plotExt);
-
-                        try { psv.SetCurrentStyleSheet(ps, settings.PlotStyle); } catch { }
-
-                        psv.SetUseStandardScale(ps, true);
-                        psv.SetStdScaleType(ps, StdScaleType.ScaleToFit);
-                        psv.SetPlotCentered(ps, true);
-
-                        // CRITICAL: Force standard rendering to avoid blank PDFs from custom visual styles
-                        ps.PrintLineweights = true;
-                        ps.PlotPlotStyles = true;
-                        ps.DrawViewportsFirst = true;
-                        ps.PlotHidden = false;
-
-                        double lenX = frame.Extents.MaxPoint.X - frame.Extents.MinPoint.X;
-                        double lenY = frame.Extents.MaxPoint.Y - frame.Extents.MinPoint.Y;
-                        psv.SetPlotRotation(ps, lenX > lenY ? PlotRotation.Degrees000 : PlotRotation.Degrees090);
-
-                        plotJobs.Add((frame.LayoutName, layId, lay.ModelType, ps, frame.Extents));
+                        plotExt = new Extents2d(minX, minY, maxX, maxY);
                     }
-                    tr.Commit();
+                    else
+                    {
+                        plotExt = new Extents2d(frame.Extents.MinPoint.X, frame.Extents.MinPoint.Y, frame.Extents.MaxPoint.X, frame.Extents.MaxPoint.Y);
+                    }
+                    psv.SetPlotWindowArea(ps, plotExt);
+
+                    // 3. Set PlotType
+                    psv.SetPlotType(ps, Autodesk.AutoCAD.DatabaseServices.PlotType.Window);
+
+                    // 4. Set PlotWindowArea AGAIN to ensure it isn't reset by PlotType
+                    psv.SetPlotWindowArea(ps, plotExt);
+
+                    try { psv.SetCurrentStyleSheet(ps, settings.PlotStyle); } catch { }
+
+                    psv.SetUseStandardScale(ps, true);
+                    psv.SetStdScaleType(ps, StdScaleType.ScaleToFit);
+                    psv.SetPlotCentered(ps, true);
+
+                    // CRITICAL: Force standard rendering to avoid blank PDFs from custom visual styles
+                    ps.PrintLineweights = true;
+                    ps.PlotPlotStyles = true;
+                    ps.DrawViewportsFirst = true;
+                    ps.PlotHidden = false;
+
+                    double lenX = frame.Extents.MaxPoint.X - frame.Extents.MinPoint.X;
+                    double lenY = frame.Extents.MaxPoint.Y - frame.Extents.MinPoint.Y;
+                    psv.SetPlotRotation(ps, lenX > lenY ? PlotRotation.Degrees000 : PlotRotation.Degrees090);
+
+                    plotJobs.Add((frame.LayoutName, layId, lay.ModelType, ps, frame.Extents));
                 }
+                tr.Commit();
             }
             catch (System.Exception ex)
             {
@@ -311,12 +307,16 @@ namespace TPL
             short bgPlot = (short)Application.GetSystemVariable("BACKGROUNDPLOT");
             Application.SetSystemVariable("BACKGROUNDPLOT", 0);
 
-            var progressForm = new System.Windows.Forms.Form();
-            progressForm.Text = L10n.T("prog_title");
-            progressForm.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-            progressForm.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
-            progressForm.ClientSize = new System.Drawing.Size(380, 90);
-            progressForm.MaximizeBox = false; progressForm.MinimizeBox = false; progressForm.ControlBox = false;
+            var progressForm = new System.Windows.Forms.Form
+            {
+                Text = L10n.T("prog_title"),
+                StartPosition = System.Windows.Forms.FormStartPosition.CenterParent,
+                FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog,
+                ClientSize = new System.Drawing.Size(380, 90),
+                MaximizeBox = false,
+                MinimizeBox = false,
+                ControlBox = false
+            };
             var lblProg = new System.Windows.Forms.Label { Left = 10, Top = 10, Width = 360, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold), ForeColor = System.Drawing.Color.FromArgb(0, 102, 204) };
             var pb = new System.Windows.Forms.ProgressBar { Left = 10, Top = 38, Width = 360, Height = 22, Minimum = 0, Maximum = plotJobs.Count, Style = System.Windows.Forms.ProgressBarStyle.Continuous };
             var lblSub = new System.Windows.Forms.Label { Left = 10, Top = 65, Width = 360, ForeColor = System.Drawing.Color.DimGray, Font = new System.Drawing.Font("Segoe UI", 8.5F) };
@@ -329,7 +329,7 @@ namespace TPL
                 int fileCounter = 1;
                 for (int i = 0; i < plotJobs.Count; i++)
                 {
-                    var job = plotJobs[i];
+                    var (LayoutName, LayoutId, ModelType, Ps, Extents) = plotJobs[i];
                     string filePath;
                     string fileName;
                     do
@@ -345,7 +345,7 @@ namespace TPL
                     progressForm.Update();
 
                     // Layout switch
-                    LayoutManager.Current.CurrentLayout = job.LayoutName;
+                    LayoutManager.Current.CurrentLayout = LayoutName;
                     ed.UpdateScreen();
                     /* zoom removed
                     {
@@ -387,7 +387,7 @@ namespace TPL
                         ppd.OnBeginPlot(); ppd.IsVisible = false;
                         pe.BeginPlot(ppd, null);
 
-                        var pi = new PlotInfo { Layout = job.LayoutId, OverrideSettings = job.Ps };
+                        var pi = new PlotInfo { Layout = LayoutId, OverrideSettings = Ps };
                         var piv = new PlotInfoValidator { MediaMatchingPolicy = MatchingPolicy.MatchEnabled };
                         piv.Validate(pi);
 
@@ -403,7 +403,7 @@ namespace TPL
                         pe.EndPlot(null);
                         generatedFiles.Add(filePath);
                     }
-                    job.Ps.Dispose();
+                    Ps.Dispose();
                 }
 
                 pb.Value = plotJobs.Count;
@@ -419,35 +419,33 @@ namespace TPL
                         if (!pdfFile.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) continue;
                         try
                         {
-                            using (var docPdf = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify))
+                            using var docPdf = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify);
+                            bool modified = false;
+                            foreach (var page in docPdf.Pages)
                             {
-                                bool modified = false;
-                                foreach (var page in docPdf.Pages)
-                                {
-                                    // Use raw MediaBox to avoid any PdfSharp version differences in page.Width
-                                    double rawWidth = page.MediaBox.Width;
-                                    double rawHeight = page.MediaBox.Height;
-                                    
-                                    // Calculate visual dimensions based on current Rotate
-                                    int currentRotate = page.Rotate;
-                                    bool isRotated = (Math.Abs(currentRotate) / 90) % 2 != 0;
-                                    
-                                    double visualWidth = isRotated ? rawHeight : rawWidth;
-                                    double visualHeight = isRotated ? rawWidth : rawHeight;
+                                // Use raw MediaBox to avoid any PdfSharp version differences in page.Width
+                                double rawWidth = page.MediaBox.Width;
+                                double rawHeight = page.MediaBox.Height;
 
-                                    if (settings.Orientation == PlotHelper.PlotOrientation.Portrait && visualWidth > visualHeight)
-                                    {
-                                        page.Rotate = (currentRotate + 90) % 360; // 90 deg CW
-                                        modified = true;
-                                    }
-                                    else if (settings.Orientation == PlotHelper.PlotOrientation.Landscape && visualHeight > visualWidth)
-                                    {
-                                        page.Rotate = (currentRotate + 270) % 360; // 90 deg CCW
-                                        modified = true;
-                                    }
+                                // Calculate visual dimensions based on current Rotate
+                                int currentRotate = page.Rotate;
+                                bool isRotated = (Math.Abs(currentRotate) / 90) % 2 != 0;
+
+                                double visualWidth = isRotated ? rawHeight : rawWidth;
+                                double visualHeight = isRotated ? rawWidth : rawHeight;
+
+                                if (settings.Orientation == PlotHelper.PlotOrientation.Portrait && visualWidth > visualHeight)
+                                {
+                                    page.Rotate = (currentRotate + 90) % 360; // 90 deg CW
+                                    modified = true;
                                 }
-                                if (modified) docPdf.Save(pdfFile);
+                                else if (settings.Orientation == PlotHelper.PlotOrientation.Landscape && visualHeight > visualWidth)
+                                {
+                                    page.Rotate = (currentRotate + 270) % 360; // 90 deg CCW
+                                    modified = true;
+                                }
                             }
+                            if (modified) docPdf.Save(pdfFile);
                         }
                         catch (System.Exception ex)
                         {
@@ -484,7 +482,7 @@ namespace TPL
                     try
                     {
                         lblSub.Text = "Converting to Image..."; progressForm.Update();
-                        List<string> imageFiles = new List<string>();
+                        List<string> imageFiles = new();
                         for (int i = 0; i < generatedFiles.Count; i++)
                         {
                             string pdfFile = generatedFiles[i];
@@ -498,13 +496,11 @@ namespace TPL
                                 int width = (int)(size.Width * settings.ImageDpi / 72.0);
                                 int height = (int)(size.Height * settings.ImageDpi / 72.0);
 
-                                using (var image = docPdf.Render(0, width, height, settings.ImageDpi, settings.ImageDpi, PdfiumViewer.PdfRenderFlags.Annotations))
-                                {
-                                    if (settings.ImageFormat == "JPG")
-                                        image.Save(imgPath, System.Drawing.Imaging.ImageFormat.Jpeg);
-                                    else
-                                        image.Save(imgPath, System.Drawing.Imaging.ImageFormat.Png);
-                                }
+                                using var image = docPdf.Render(0, width, height, settings.ImageDpi, settings.ImageDpi, PdfiumViewer.PdfRenderFlags.Annotations);
+                                if (settings.ImageFormat == "JPG")
+                                    image.Save(imgPath, System.Drawing.Imaging.ImageFormat.Jpeg);
+                                else
+                                    image.Save(imgPath, System.Drawing.Imaging.ImageFormat.Png);
                             }
                             imageFiles.Add(imgPath);
                             try { File.Delete(pdfFile); } catch { }
@@ -523,8 +519,7 @@ namespace TPL
                         editor.SetDefaultFileName(baseName);
                         editor.AddPdfFiles(generatedFiles);
 
-                        if (Commands.MainFormInstance != null)
-                            Commands.MainFormInstance.Hide();
+                        Commands.MainFormInstance?.Hide();
 
                         if (!editor.IsVisible)
                             editor.Show();

@@ -135,7 +135,7 @@ namespace TPL
                 if (doc == null || doc.IsDisposed) return;
                 Editor ed = doc.Editor;
                 var pso = new PromptSelectionOptions { MessageForAdding = L10n.T("msg_sel_block") };
-                var filter = new SelectionFilter(new TypedValue[] { new TypedValue((int)DxfCode.Start, "INSERT") });
+                var filter = new SelectionFilter(new TypedValue[] { new((int)DxfCode.Start, "INSERT") });
                 var psr = ed.GetSelection(pso, filter);
                 if (psr.Status == PromptStatus.OK)
                 {
@@ -172,7 +172,7 @@ namespace TPL
                 if (doc == null || doc.IsDisposed) return;
                 Editor ed = doc.Editor;
                 var pso = new PromptSelectionOptions { MessageForAdding = L10n.T("msg_sel_layer") };
-                var filter = new SelectionFilter(new TypedValue[] { new TypedValue((int)DxfCode.Start, "LWPOLYLINE") });
+                var filter = new SelectionFilter(new TypedValue[] { new((int)DxfCode.Start, "LWPOLYLINE") });
                 var psr = ed.GetSelection(pso, filter);
                 if (psr.Status == PromptStatus.OK)
                 {
@@ -228,19 +228,17 @@ namespace TPL
                 if (psr.Status == PromptStatus.OK)
                 {
                     tempManualSelectionIds.Clear();
-                    using (var tr = doc.Database.TransactionManager.StartTransaction())
+                    using var tr = doc.Database.TransactionManager.StartTransaction();
+                    foreach (ObjectId id in psr.Value.GetObjectIds())
                     {
-                        foreach (ObjectId id in psr.Value.GetObjectIds())
+                        if (ds.FrameType == PlotHelper.FrameType.Block)
                         {
-                            if (ds.FrameType == PlotHelper.FrameType.Block)
-                            {
-                                var br = (BlockReference)tr.GetObject(id, OpenMode.ForRead);
-                                string name = br.IsDynamicBlock ? ((BlockTableRecord)tr.GetObject(br.DynamicBlockTableRecord, OpenMode.ForRead)).Name : br.Name;
-                                if (ds.FrameNames.Any(fn => string.Equals(name, fn, StringComparison.OrdinalIgnoreCase)))
-                                    tempManualSelectionIds.Add(id);
-                            }
-                            else tempManualSelectionIds.Add(id);
+                            var br = (BlockReference)tr.GetObject(id, OpenMode.ForRead);
+                            string name = br.IsDynamicBlock ? ((BlockTableRecord)tr.GetObject(br.DynamicBlockTableRecord, OpenMode.ForRead)).Name : br.Name;
+                            if (ds.FrameNames.Any(fn => string.Equals(name, fn, StringComparison.OrdinalIgnoreCase)))
+                                tempManualSelectionIds.Add(id);
                         }
+                        else tempManualSelectionIds.Add(id);
                     }
                 }
             }
@@ -269,8 +267,8 @@ namespace TPL
                 if (frames.Count == 0)
                 { System.Windows.MessageBox.Show(L10n.T("msg_no_result"), L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Information); return; }
                 PlotLogic.SortFrames(frames, Settings);
-                using (DocumentLock docLock = doc.LockDocument())
-                    PlotLogic.PlotAll(frames, Settings);
+                using DocumentLock docLock = doc.LockDocument();
+                PlotLogic.PlotAll(frames, Settings);
             }
             catch (Exception ex)
             { System.Windows.MessageBox.Show(string.Format(L10n.T("msg_plot_error"), ex.Message), L10n.T("err_title"), MessageBoxButton.OK, MessageBoxImage.Error); }

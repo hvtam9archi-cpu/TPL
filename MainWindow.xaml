@@ -387,12 +387,13 @@
                         <Grid Grid.Column="0" VerticalAlignment="Center" Height="82">
                             <CheckBox x:Name="chkMergePdf" Content="Merge PDF" IsChecked="True"
                  Style="{StaticResource DarkCheck}" Foreground="#22C55E" FontWeight="Bold" Margin="0,0,0,57"
-                 Checked="ChkMergePdf_Changed" Unchecked="ChkMergePdf_Changed"/>
+                 />
                             <CheckBox x:Name="chkPdfEditor" Content="PDF Editor"
                  Style="{StaticResource DarkCheck}" Foreground="#C084FC" FontWeight="Bold"
                  Checked="ChkPdfEditor_Changed" Unchecked="ChkPdfEditor_Changed" Margin="0,27,0,30"/>
                             <CheckBox x:Name="chkOpenPdf" Content="Open when done" IsChecked="True"
-                 Style="{StaticResource DarkCheck}" Margin="0,52,0,5"/>
+                 Style="{StaticResource DarkCheck}" 
+                 Checked="ChkMergePdf_Changed" Unchecked="ChkMergePdf_Changed" Margin="0,52,0,5"/>
                         </Grid>
 
                         <!-- Image Options -->

@@ -70,24 +70,22 @@ namespace TPL
                 try
                 {
                     // Tải danh sách các mã bị khoá từ xa
-                    using (var client = new WebClient())
-                    {
-                        // Chống cache từ Windows và Google để luôn nhận dữ liệu mới nhất
-                        client.Headers.Add("Cache-Control", "no-cache");
-                        string url = RevokeListUrl + (RevokeListUrl.Contains("?") ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
-                        string data = client.DownloadString(url);
-                        string hwId = GetHardwareId();
+                    using var client = new WebClient();
+                    // Chống cache từ Windows và Google để luôn nhận dữ liệu mới nhất
+                    client.Headers.Add("Cache-Control", "no-cache");
+                    string url = RevokeListUrl + (RevokeListUrl.Contains("?") ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
+                    string data = client.DownloadString(url);
+                    string hwId = GetHardwareId();
 
-                        // Nếu Hardware ID của máy này có trong danh sách bị khoá
-                        if (data.Contains(hwId))
+                    // Nếu Hardware ID của máy này có trong danh sách bị khoá
+                    if (data.Contains(hwId))
+                    {
+                        LicenseInfo info = GetLicenseInfo();
+                        if (info.IsValid)
                         {
-                            LicenseInfo info = GetLicenseInfo();
-                            if (info.IsValid)
-                            {
-                                info.ExpirationDate = DateTime.MinValue; // Lập tức hết hạn
-                                // Không xoá AppliedKeys để tránh việc sử dụng lại key cũ khi được gỡ blocklist
-                                SaveLicenseInfo(info);
-                            }
+                            info.ExpirationDate = DateTime.MinValue; // Lập tức hết hạn
+                                                                     // Không xoá AppliedKeys để tránh việc sử dụng lại key cũ khi được gỡ blocklist
+                            SaveLicenseInfo(info);
                         }
                     }
                 }
@@ -106,12 +104,10 @@ namespace TPL
         {
             try
             {
-                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher($"SELECT {property} FROM {wmiclass}"))
+                using ManagementObjectSearcher searcher = new($"SELECT {property} FROM {wmiclass}");
+                foreach (ManagementBaseObject obj in searcher.Get())
                 {
-                    foreach (ManagementObject obj in searcher.Get())
-                    {
-                        return obj[property]?.ToString()?.Trim() ?? "";
-                    }
+                    return obj[property]?.ToString()?.Trim() ?? "";
                 }
             }
             catch { }
@@ -120,13 +116,11 @@ namespace TPL
 
         private static string ComputeMD5(string input)
         {
-            using (MD5 md5 = MD5.Create())
-            {
-                byte[] bytes = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
-                StringBuilder sb = new StringBuilder();
-                foreach (byte b in bytes) sb.Append(b.ToString("x2"));
-                return sb.ToString();
-            }
+            using MD5 md5 = MD5.Create();
+            byte[] bytes = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
+            StringBuilder sb = new();
+            foreach (byte b in bytes) sb.Append(b.ToString("x2"));
+            return sb.ToString();
         }
 
         public static LicenseInfo GetLicenseInfo()
@@ -135,10 +129,8 @@ namespace TPL
             string encryptedData = null;
             try
             {
-                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath))
-                {
-                    encryptedData = key?.GetValue("LicenseData") as string;
-                }
+                using RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath);
+                encryptedData = key?.GetValue("LicenseData") as string;
             }
             catch { }
 
@@ -181,10 +173,8 @@ namespace TPL
             {
                 string serialized = info.Serialize();
                 string encrypted = Encrypt(serialized);
-                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath))
-                {
-                    key?.SetValue("LicenseData", encrypted);
-                }
+                using RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath);
+                key?.SetValue("LicenseData", encrypted);
             }
             catch { }
         }
@@ -279,44 +269,34 @@ namespace TPL
 
         private static string ComputeSHA256String(string text)
         {
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(text));
-                StringBuilder sb = new StringBuilder();
-                foreach (byte b in bytes) sb.Append(b.ToString("X2"));
-                return sb.ToString();
-            }
+            using SHA256 sha256 = SHA256.Create();
+            byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(text));
+            StringBuilder sb = new();
+            foreach (byte b in bytes) sb.Append(b.ToString("X2"));
+            return sb.ToString();
         }
 
         private static byte[] GetHashSha256(string text)
         {
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                return sha256.ComputeHash(Encoding.UTF8.GetBytes(text));
-            }
+            using SHA256 sha256 = SHA256.Create();
+            return sha256.ComputeHash(Encoding.UTF8.GetBytes(text));
         }
 
         private static string Encrypt(string plainText)
         {
             byte[] iv = new byte[16];
-            using (Aes aes = Aes.Create())
-            {
-                aes.Key = GetHashSha256(SecretKey);
-                aes.IV = iv; // For simplicity in this non-critical app
-                ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
+            using Aes aes = Aes.Create();
+            aes.Key = GetHashSha256(SecretKey);
+            aes.IV = iv; // For simplicity in this non-critical app
+            ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
 
-                using (MemoryStream ms = new MemoryStream())
-                {
-                    using (CryptoStream cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
-                    {
-                        using (StreamWriter sw = new StreamWriter(cs))
-                        {
-                            sw.Write(plainText);
-                        }
-                    }
-                    return Convert.ToBase64String(ms.ToArray());
-                }
+            using MemoryStream ms = new();
+            using (CryptoStream cs = new(ms, encryptor, CryptoStreamMode.Write))
+            {
+                using StreamWriter sw = new(cs);
+                sw.Write(plainText);
             }
+            return Convert.ToBase64String(ms.ToArray());
         }
 
         private static string Decrypt(string cipherText)
@@ -324,23 +304,15 @@ namespace TPL
             byte[] iv = new byte[16];
             byte[] buffer = Convert.FromBase64String(cipherText);
 
-            using (Aes aes = Aes.Create())
-            {
-                aes.Key = GetHashSha256(SecretKey);
-                aes.IV = iv;
-                ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
+            using Aes aes = Aes.Create();
+            aes.Key = GetHashSha256(SecretKey);
+            aes.IV = iv;
+            ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
 
-                using (MemoryStream ms = new MemoryStream(buffer))
-                {
-                    using (CryptoStream cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read))
-                    {
-                        using (StreamReader sr = new StreamReader(cs))
-                        {
-                            return sr.ReadToEnd();
-                        }
-                    }
-                }
-            }
+            using MemoryStream ms = new(buffer);
+            using CryptoStream cs = new(ms, decryptor, CryptoStreamMode.Read);
+            using StreamReader sr = new(cs);
+            return sr.ReadToEnd();
         }
     }
 }

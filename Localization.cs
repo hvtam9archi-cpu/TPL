@@ -11,34 +11,33 @@ namespace TPL
         public static void Init()
         {
             string cult = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-            switch (cult)
+            _lang = cult switch
             {
-                case "vi": _lang = Language.Vietnamese; break;
-                case "zh": _lang = Language.ChineseSimplified; break;
-                case "ko": _lang = Language.Korean; break;
-                case "ja": _lang = Language.Japanese; break;
-                default: _lang = Language.English; break;
-            }
+                "vi" => Language.Vietnamese,
+                "zh" => Language.ChineseSimplified,
+                "ko" => Language.Korean,
+                "ja" => Language.Japanese,
+                _ => Language.English,
+            };
         }
         public static void Set(Language lang) => _lang = lang;
         public static Language Current => _lang;
 
         public static string T(string key)
         {
-            Dictionary<string, string> d;
-            switch (_lang)
+            Dictionary<string, string> d = _lang switch
             {
-                case Language.ChineseSimplified: d = _zh; break;
-                case Language.Korean: d = _ko; break;
-                case Language.Japanese: d = _ja; break;
-                case Language.English: d = _en; break;
-                default: d = _vi; break;
-            }
+                Language.ChineseSimplified => _zh,
+                Language.Korean => _ko,
+                Language.Japanese => _ja,
+                Language.English => _en,
+                _ => _vi,
+            };
             return d.TryGetValue(key, out string v) ? v : (_vi.TryGetValue(key, out string vv) ? vv : key);
         }
 
         // ─── Vietnamese ───────────────────────────────────────────────────────
-        private static readonly Dictionary<string, string> _vi = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> _vi = new()
         {
             ["app_title"] = "Xuất PDF Hàng Loạt - TPL",
             ["header_printer"] = "1. MÁY IN - GIẤY - BÚT IN",
@@ -107,7 +106,7 @@ namespace TPL
         };
 
         // ─── English ──────────────────────────────────────────────────────────
-        private static readonly Dictionary<string, string> _en = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> _en = new()
         {
             ["app_title"] = "Batch Plot PDF - TPL",
             ["header_printer"] = "1. PRINTER - PAPER SIZE - PLOT STYLE",
@@ -178,7 +177,7 @@ namespace TPL
         };
 
         // ─── Chinese (Simplified) 简体中文 ─────────────────────────────────────
-        private static readonly Dictionary<string, string> _zh = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> _zh = new()
         {
             ["app_title"] = "批量打印PDF - TPL",
             ["header_printer"] = "1. 打印机 & 纸张",
@@ -235,7 +234,7 @@ namespace TPL
         };
 
         // ─── Korean 한국어 ─────────────────────────────────────────────────────
-        private static readonly Dictionary<string, string> _ko = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> _ko = new()
         {
             ["app_title"] = "일괄 PDF 출력 - TPL",
             ["header_printer"] = "1. 프린터 & 용지",
@@ -292,7 +291,7 @@ namespace TPL
         };
 
         // ─── Japanese 日本語 ───────────────────────────────────────────────────
-        private static readonly Dictionary<string, string> _ja = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> _ja = new()
         {
             ["app_title"] = "一括PDF出力 - TPL",
             ["header_printer"] = "1. プリンター & 用紙",
