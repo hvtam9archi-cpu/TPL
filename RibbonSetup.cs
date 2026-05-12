@@ -11,7 +11,10 @@ namespace TPL
 
         public void Initialize()
         {
+            // Đăng ký event để chờ Ribbon sẵn sàng
             ComponentManager.ItemInitialized += ComponentManager_ItemInitialized;
+
+            // Nếu Ribbon đã có rồi (trường hợp NETLOAD thủ công), tạo ngay
             if (ComponentManager.Ribbon != null)
             {
                 CreateRibbon();
@@ -28,6 +31,32 @@ namespace TPL
             {
                 CreateRibbon();
                 ComponentManager.ItemInitialized -= ComponentManager_ItemInitialized;
+            }
+        }
+
+        /// <summary>
+        /// Được gọi từ Application.Idle sau khi Ribbon đã tạo xong.
+        /// Đảm bảo AutoCAD đã render xong giao diện trước khi active tab.
+        /// </summary>
+        private void OnIdle_ActivateTab(object sender, EventArgs e)
+        {
+            // Gỡ event ngay lập tức — chỉ cần chạy 1 lần
+            Application.Idle -= OnIdle_ActivateTab;
+
+            try
+            {
+                RibbonControl ribbon = ComponentManager.Ribbon;
+                if (ribbon == null) return;
+
+                RibbonTab tab = ribbon.FindTab("TH_TOOLS_TAB");
+                if (tab != null)
+                {
+                    tab.IsActive = true;
+                }
+            }
+            catch
+            {
+                // Bỏ qua nếu tab không tồn tại hoặc Ribbon chưa sẵn sàng
             }
         }
 
@@ -77,7 +106,7 @@ namespace TPL
                 RibbonControl ribbon = ComponentManager.Ribbon;
                 if (ribbon == null) return;
 
-                // 1. Tab "TH Tools"
+                // 1. Tìm hoặc tạo Tab "TH Tools"
                 RibbonTab tab = ribbon.FindTab("TH_TOOLS_TAB");
                 if (tab == null)
                 {
@@ -133,10 +162,10 @@ namespace TPL
                     // 3. Button "TPL Plotter"
                     RibbonButton btnTpl = new()
                     {
-                        Text = "\nTPL Plotter", // Thêm \n để hạ thấp text xuống 1 chút
+                        Text = "\nTPL Plotter",
                         ShowText = true,
                         ShowImage = true,
-                        CommandParameter = "\x1B\x1BTPL ", // ESC ESC TPL
+                        CommandParameter = "TPL",
                         CommandHandler = cmdHandler,
                         Size = RibbonItemSize.Large,
                         Orientation = System.Windows.Controls.Orientation.Vertical
@@ -147,10 +176,10 @@ namespace TPL
                     // 4. Button "TPL License"
                     RibbonButton btnLicense = new()
                     {
-                        Text = "\nTPL License", // Thêm \n để hạ thấp text xuống 1 chút
+                        Text = "\nTPL License",
                         ShowText = true,
                         ShowImage = true,
-                        CommandParameter = "\x1B\x1BTPL_LICENSE ",
+                        CommandParameter = "TPL_LICENSE",
                         CommandHandler = cmdHandler,
                         Size = RibbonItemSize.Large,
                         Orientation = System.Windows.Controls.Orientation.Vertical
@@ -164,7 +193,11 @@ namespace TPL
                 }
 
                 _isLoaded = true;
-                tab.IsActive = true;
+
+                // Đăng ký Idle event để active tab SAU khi AutoCAD render xong Ribbon
+                // Nếu gọi tab.IsActive = true ngay tại đây, AutoCAD có thể chưa render xong
+                // dẫn đến tab không được chuyển focus đúng cách
+                Application.Idle += OnIdle_ActivateTab;
             }
             catch (System.Exception ex)
             {
@@ -185,7 +218,15 @@ namespace TPL
             if (parameter is RibbonButton button && button.CommandParameter != null)
             {
                 Document doc = Application.DocumentManager.MdiActiveDocument;
-                doc?.SendStringToExecute((string)button.CommandParameter, true, false, false);
+                if (doc == null) return;
+
+                string commandName = (string)button.CommandParameter;
+
+                // Tách thành 2 lời gọi SendStringToExecute riêng biệt:
+                // Gọi 1: Hủy lệnh đang chạy (ESC ESC)
+                doc.SendStringToExecute("\x1B\x1B", true, false, false);
+                // Gọi 2: Gửi tên lệnh (buffer riêng, không bị dính)
+                doc.SendStringToExecute(commandName + "\n", true, false, false);
             }
         }
     }
