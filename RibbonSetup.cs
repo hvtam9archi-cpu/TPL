@@ -1,33 +1,44 @@
+using System;
+using System.Windows.Input;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.Windows;
-using System;
+using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace TPL
 {
     public class RibbonSetup : IExtensionApplication
     {
-        private static bool _isLoaded = false;
+        private const string TabId = "TH_TOOLS_TAB";
+        private const string TabTitle = "TH Tools";
+        private RibbonCommandHandler _cmdHandler = new RibbonCommandHandler();
 
         public void Initialize()
         {
-            ComponentManager.ItemInitialized += ComponentManager_ItemInitialized;
+            Application.Idle += Application_Idle;
+            Application.SystemVariableChanged += Application_SystemVariableChanged;
+        }
+
+        public void Terminate() 
+        {
+            Application.Idle -= Application_Idle;
+            Application.SystemVariableChanged -= Application_SystemVariableChanged;
+        }
+
+        private void Application_Idle(object sender, EventArgs e)
+        {
             if (ComponentManager.Ribbon != null)
             {
+                Application.Idle -= Application_Idle;
                 CreateRibbon();
             }
         }
 
-        public void Terminate()
+        private void Application_SystemVariableChanged(object sender, Autodesk.AutoCAD.ApplicationServices.SystemVariableChangedEventArgs e)
         {
-        }
-
-        private void ComponentManager_ItemInitialized(object sender, RibbonItemEventArgs e)
-        {
-            if (ComponentManager.Ribbon != null && !_isLoaded)
+            if (e.Name.Equals("WSCURRENT", StringComparison.OrdinalIgnoreCase) && ComponentManager.Ribbon != null)
             {
                 CreateRibbon();
-                ComponentManager.ItemInitialized -= ComponentManager_ItemInitialized;
             }
         }
 
@@ -77,43 +88,30 @@ namespace TPL
                 RibbonControl ribbon = ComponentManager.Ribbon;
                 if (ribbon == null) return;
 
-                // 1. Tab "TH Tools"
-                RibbonTab tab = ribbon.FindTab("TH_TOOLS_TAB");
-                if (tab == null)
+                // 1. Tìm hoặc Tạo Tab "TH Tools"
+                RibbonTab rtb = ribbon.FindTab(TabId);
+                if (rtb == null)
                 {
-                    tab = new RibbonTab
-                    {
-                        Title = "TH Tools",
-                        Id = "TH_TOOLS_TAB"
-                    };
-                    ribbon.Tabs.Add(tab);
+                    rtb = new RibbonTab { Title = TabTitle, Id = TabId };
+                    ribbon.Tabs.Add(rtb);
                 }
 
-                // Kiểm tra xem Panel đã có chưa để tránh bị duplicate khi netload lại
-                bool hasPanel = false;
-                foreach (RibbonPanel p in tab.Panels)
+                // 2. Tìm hoặc Tạo Panel "TPL Plotter"
+                string panelId = "TPL_PLOTTER_PANEL";
+                bool panelExists = false;
+                foreach (RibbonPanel p in rtb.Panels)
                 {
-                    if (p.Source.Title == "TPL Plotter")
+                    if (p.Source.Id == panelId || p.Source.Title == "TPL Plotter")
                     {
-                        hasPanel = true;
+                        panelExists = true;
                         break;
                     }
                 }
 
-                if (!hasPanel)
+                if (!panelExists)
                 {
-                    // 2. Panel "TPL Plotter"
-                    RibbonPanelSource panelSource = new()
-                    {
-                        Title = "TPL Plotter"
-                    };
-                    RibbonPanel panel = new()
-                    {
-                        Source = panelSource
-                    };
-                    tab.Panels.Add(panel);
-
-                    var cmdHandler = new RibbonCommandHandler();
+                    RibbonPanelSource rps = new RibbonPanelSource { Title = "TPL Plotter", Id = panelId };
+                    RibbonPanel rp = new RibbonPanel { Source = rps };
 
                     // Load icons từ embedded resource với kích thước chuẩn xác
                     System.Windows.Media.ImageSource tplIconLarge = null;
@@ -131,40 +129,43 @@ namespace TPL
                     catch { }
 
                     // 3. Button "TPL Plotter"
-                    RibbonButton btnTpl = new()
+                    RibbonButton btnTpl = new RibbonButton
                     {
+                        Id = "TPL_PLOTTER",
                         Text = "\nTPL Plotter", // Thêm \n để hạ thấp text xuống 1 chút
                         ShowText = true,
                         ShowImage = true,
-                        CommandParameter = "\x1B\x1BTPL ", // ESC ESC TPL
-                        CommandHandler = cmdHandler,
                         Size = RibbonItemSize.Large,
-                        Orientation = System.Windows.Controls.Orientation.Vertical
+                        Orientation = System.Windows.Controls.Orientation.Vertical,
+                        CommandParameter = "\x03\x03TPL ",
+                        CommandHandler = _cmdHandler
                     };
                     if (tplIconLarge != null) btnTpl.LargeImage = tplIconLarge;
                     if (tplIconSmall != null) btnTpl.Image = tplIconSmall;
 
                     // 4. Button "TPL License"
-                    RibbonButton btnLicense = new()
+                    RibbonButton btnLicense = new RibbonButton
                     {
+                        Id = "TPL_LICENSE",
                         Text = "\nTPL License", // Thêm \n để hạ thấp text xuống 1 chút
                         ShowText = true,
                         ShowImage = true,
-                        CommandParameter = "\x1B\x1BTPL_LICENSE ",
-                        CommandHandler = cmdHandler,
                         Size = RibbonItemSize.Large,
-                        Orientation = System.Windows.Controls.Orientation.Vertical
+                        Orientation = System.Windows.Controls.Orientation.Vertical,
+                        CommandParameter = "\x03\x03TPL_LICENSE ",
+                        CommandHandler = _cmdHandler
                     };
                     if (licenseIconLarge != null) btnLicense.LargeImage = licenseIconLarge;
                     if (licenseIconSmall != null) btnLicense.Image = licenseIconSmall;
 
                     // Thêm vào Panel — bố cục hàng ngang (không dùng RibbonRowBreak)
-                    panelSource.Items.Add(btnTpl);
-                    panelSource.Items.Add(btnLicense);
+                    rps.Items.Add(btnTpl);
+                    rps.Items.Add(btnLicense);
+
+                    rtb.Panels.Add(rp);
                 }
 
-                _isLoaded = true;
-                tab.IsActive = true;
+                rtb.IsActive = true;
             }
             catch (System.Exception ex)
             {
@@ -173,19 +174,26 @@ namespace TPL
         }
     }
 
-    public class RibbonCommandHandler : System.Windows.Input.ICommand
+    public class RibbonCommandHandler : ICommand
     {
-        public bool CanExecute(object parameter) => true;
-#pragma warning disable CS0067 // Event never used
         public event EventHandler CanExecuteChanged;
-#pragma warning restore CS0067
+        public bool CanExecute(object parameter) => true;
 
         public void Execute(object parameter)
         {
-            if (parameter is RibbonButton button && button.CommandParameter != null)
+            string cmd = null;
+            if (parameter is RibbonButton btn)
+                cmd = btn.CommandParameter as string;
+            else if (parameter is string s)
+                cmd = s;
+
+            if (!string.IsNullOrEmpty(cmd))
             {
                 Document doc = Application.DocumentManager.MdiActiveDocument;
-                doc?.SendStringToExecute((string)button.CommandParameter, true, false, false);
+                if (doc != null)
+                {
+                    doc.SendStringToExecute(cmd, true, false, true);
+                }
             }
         }
     }
