@@ -1,0 +1,29 @@
+<Window x:Class="TPL.ProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:TPL"
+        Title="Progress"
+        Width="420" Height="130"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        Background="Transparent"
+        AllowsTransparency="True"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True">
+    <Border Background="#181A1F" BorderBrush="#333640" BorderThickness="1" CornerRadius="10">
+        <Grid Margin="16,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <TextBlock x:Name="txtTitle" Text="Processing..." Foreground="#2563EB" FontSize="13" FontWeight="Bold" FontFamily="Segoe UI" Margin="0,0,0,10"/>
+            
+            <local:DarkProgressControl x:Name="pnlProgress" Grid.Row="1" Margin="0,0,0,8"/>
+
+			<TextBlock x:Name="txtSubTitle" Text="Preparing..." Foreground="#6B7280" FontSize="11" FontFamily="Segoe UI" Grid.Row="2"/>
+        </Grid>
+    </Border>
+</Window>
