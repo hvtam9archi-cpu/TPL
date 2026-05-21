@@ -394,38 +394,36 @@ namespace TPL
                     if (PlotFactory.ProcessPlotState != ProcessPlotState.NotPlotting) continue;
 
                     {
-                        // ═══ Unified Plot Engine ═══
-                        // CreatePublishEngine dùng cho cả máy in file lẫn máy in vật lý.
-                        // Khác biệt duy nhất: filePath="" → gửi qua spooler, filePath=path → xuất file.
-                        using (var pe = PlotFactory.CreatePublishEngine())
-                        using (var ppd = new PlotProgressDialog(false, 1, true))
-                        {
-                            ppd.set_PlotMsgString(PlotMessageIndex.DialogTitle, "TPL");
-                            ppd.set_PlotMsgString(PlotMessageIndex.CancelJobButtonMessage, "Cancel");
-                            ppd.set_PlotMsgString(PlotMessageIndex.CancelSheetButtonMessage, "Cancel");
-                            ppd.LowerPlotProgressRange = 0; ppd.UpperPlotProgressRange = 100; ppd.PlotProgressPos = 0;
-                            ppd.OnBeginPlot(); ppd.IsVisible = false;
-                            pe.BeginPlot(ppd, null);
+						// ═══ Unified Plot Engine ═══
+						// CreatePublishEngine dùng cho cả máy in file lẫn máy in vật lý.
+						// Khác biệt duy nhất: filePath="" → gửi qua spooler, filePath=path → xuất file.
+						using var pe = PlotFactory.CreatePublishEngine();
+						using var ppd = new PlotProgressDialog(false, 1, true);
+						ppd.set_PlotMsgString(PlotMessageIndex.DialogTitle, "TPL");
+						ppd.set_PlotMsgString(PlotMessageIndex.CancelJobButtonMessage, "Cancel");
+						ppd.set_PlotMsgString(PlotMessageIndex.CancelSheetButtonMessage, "Cancel");
+						ppd.LowerPlotProgressRange = 0; ppd.UpperPlotProgressRange = 100; ppd.PlotProgressPos = 0;
+						ppd.OnBeginPlot(); ppd.IsVisible = false;
+						pe.BeginPlot(ppd, null);
 
-                            var pi = new PlotInfo { Layout = LayoutId, OverrideSettings = Ps };
-                            var piv = new PlotInfoValidator { MediaMatchingPolicy = MatchingPolicy.MatchEnabled };
-                            piv.Validate(pi);
+						var pi = new PlotInfo { Layout = LayoutId, OverrideSettings = Ps };
+						var piv = new PlotInfoValidator { MediaMatchingPolicy = MatchingPolicy.MatchEnabled };
+						piv.Validate(pi);
 
-                            // File printer → plotToFile = true, filePath = đường dẫn file output
-                            // Physical printer → plotToFile = false, filePath = "" (gửi trực tiếp qua Windows Print Spooler)
-                            pe.BeginDocument(pi, doc.Name, null, 1, isFilePrinter, isFilePrinter ? filePath : "");
-                            ppd.OnBeginSheet(); ppd.LowerSheetProgressRange = 0; ppd.UpperSheetProgressRange = 100; ppd.SheetProgressPos = 0;
-                            pe.BeginPage(new PlotPageInfo(), pi, true, null);
-                            pe.BeginGenerateGraphics(null);
-                            pe.EndGenerateGraphics(null);
-                            pe.EndPage(null);
-                            ppd.SheetProgressPos = 100; ppd.OnEndSheet();
-                            pe.EndDocument(null);
-                            ppd.PlotProgressPos = 100; ppd.OnEndPlot();
-                            pe.EndPlot(null);
-                            if (isFilePrinter) generatedFiles.Add(filePath);
-                        }
-                    }
+						// File printer → plotToFile = true, filePath = đường dẫn file output
+						// Physical printer → plotToFile = false, filePath = "" (gửi trực tiếp qua Windows Print Spooler)
+						pe.BeginDocument(pi, doc.Name, null, 1, isFilePrinter, isFilePrinter ? filePath : "");
+						ppd.OnBeginSheet(); ppd.LowerSheetProgressRange = 0; ppd.UpperSheetProgressRange = 100; ppd.SheetProgressPos = 0;
+						pe.BeginPage(new PlotPageInfo(), pi, true, null);
+						pe.BeginGenerateGraphics(null);
+						pe.EndGenerateGraphics(null);
+						pe.EndPage(null);
+						ppd.SheetProgressPos = 100; ppd.OnEndSheet();
+						pe.EndDocument(null);
+						ppd.PlotProgressPos = 100; ppd.OnEndPlot();
+						pe.EndPlot(null);
+						if (isFilePrinter) generatedFiles.Add(filePath);
+					}
                     Ps.Dispose();
                 }
 

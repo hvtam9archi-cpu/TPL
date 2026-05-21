@@ -75,16 +75,35 @@ namespace TPL
 					client.Headers.Add("Cache-Control", "no-cache");
 					string url = RevokeListUrl + (RevokeListUrl.Contains("?") ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
 					string data = client.DownloadString(url);
-					string hwId = GetHardwareId();
+					string hwId = GetHardwareId().ToUpper();
 
-					// Nếu Hardware ID của máy này có trong danh sách bị khoá
-					if (data.Contains(hwId))
+					// Chuẩn hóa danh sách blacklist tải về (xóa dấu gạch ngang, khoảng trắng, chuyển in hoa)
+					string cleanData = data.Replace("-", "").Replace(" ", "").ToUpper();
+
+					bool isRevoked = false;
+					if (cleanData.Contains(hwId))
+					{
+						isRevoked = true;
+					}
+					else
+					{
+						LicenseInfo info = GetLicenseInfo();
+						foreach (string key in info.AppliedKeys)
+						{
+							if (!string.IsNullOrEmpty(key) && cleanData.Contains(key.ToUpper()))
+							{
+								isRevoked = true;
+								break;
+							}
+						}
+					}
+
+					if (isRevoked)
 					{
 						LicenseInfo info = GetLicenseInfo();
 						if (info.IsValid)
 						{
 							info.ExpirationDate = DateTime.MinValue; // Lập tức hết hạn
-																	 // Không xoá AppliedKeys để tránh việc sử dụng lại key cũ khi được gỡ blocklist
 							SaveLicenseInfo(info);
 						}
 					}
@@ -192,35 +211,73 @@ namespace TPL
 		{
 			try
 			{
-				string rawKey = Encoding.UTF8.GetString(Convert.FromBase64String(activationKey));
-				string[] parts = rawKey.Split('|');
-				if (parts.Length != 4)
+				// 1. Chuẩn hóa key: loại bỏ dấu gạch ngang, khoảng trắng, chuyển in hoa
+				string cleanedKey = activationKey.Replace("-", "").Replace(" ", "").ToUpper();
+				if (cleanedKey.Length != 16)
 				{
-					message = "Mã kích hoạt không hợp lệ.";
+					message = "Mã kích hoạt phải có độ dài đúng 16 ký tự.";
 					return false;
 				}
 
-				string keyHwId = parts[0];
-				int days = int.Parse(parts[1]);
-				string randomGuid = parts[2];
-				string providedSig = parts[3];
-
-				string expectedSig = ComputeSHA256String($"{keyHwId}|{days}|{randomGuid}|{SecretKey}").Substring(0, 16);
-				if (providedSig != expectedSig)
+				// 2. Giải mã Base32 thành 10 bytes
+				byte[] payload;
+				try
 				{
-					message = "Mã kích hoạt không hợp lệ hoặc đã bị chỉnh sửa.";
+					payload = Base32.Decode(cleanedKey);
+				}
+				catch
+				{
+					message = "Mã kích hoạt chứa ký tự không hợp lệ.";
 					return false;
 				}
 
-				LicenseInfo info = GetLicenseInfo();
+				if (payload.Length != 10)
+				{
+					message = "Mã kích hoạt không đúng định dạng nhị phân.";
+					return false;
+				}
 
-				if (info.HardwareId != keyHwId)
+				// 3. Giải nén 10 bytes
+				int days = (payload[0] << 8) | payload[1];
+				
+				byte[] shortHwIdBytes = new byte[4];
+				Array.Copy(payload, 2, shortHwIdBytes, 0, 4);
+				StringBuilder sbHw = new StringBuilder();
+				foreach (byte b in shortHwIdBytes) sbHw.Append(b.ToString("X2"));
+				string shortHwIdHex = sbHw.ToString();
+
+				byte seqByte = payload[6];
+
+				byte[] providedSigBytes = new byte[3];
+				Array.Copy(payload, 7, providedSigBytes, 0, 3);
+
+				// 4. Xác thực máy tính hiện tại
+				string myHwId = GetHardwareId();
+				string myShortHwIdHex = myHwId.Substring(0, Math.Min(8, myHwId.Length)).ToUpper();
+
+				if (shortHwIdHex != myShortHwIdHex)
 				{
 					message = "Mã kích hoạt này không dành cho máy tính (phần cứng) này.";
 					return false;
 				}
 
-				if (info.AppliedKeys.Contains(activationKey))
+				// 5. Xác thực chữ ký số
+				string textToHash = $"{shortHwIdHex}|{days}|{seqByte}|{SecretKey}";
+				byte[] hashBytes = GetHashSha256(textToHash);
+				
+				for (int i = 0; i < 3; i++)
+				{
+					if (providedSigBytes[i] != hashBytes[i])
+					{
+						message = "Mã kích hoạt không hợp lệ hoặc đã bị chỉnh sửa.";
+						return false;
+					}
+				}
+
+				LicenseInfo info = GetLicenseInfo();
+
+				// Kiểm tra key đã được dùng chưa (so sánh theo cleanedKey)
+				if (info.AppliedKeys.Contains(cleanedKey))
 				{
 					message = "Mã kích hoạt này đã được sử dụng rồi.";
 					return false;
@@ -232,39 +289,93 @@ namespace TPL
 					info.IsHardwareChanged = false;
 				}
 
-				// If already expired, base date is today. If still active, extend it.
+				// Nếu đã hết hạn, ngày tính tiếp theo là hôm nay. Nếu chưa hết hạn, cộng dồn.
 				DateTime baseDate = DateTime.Now > info.ExpirationDate ? DateTime.Now : info.ExpirationDate;
 
-				if (days >= 9999)
+				if (days >= 9999 || baseDate == DateTime.MaxValue)
 				{
-					info.ExpirationDate = DateTime.MaxValue; // Permanent
+					info.ExpirationDate = DateTime.MaxValue; // Vĩnh viễn
 				}
 				else
 				{
-					info.ExpirationDate = baseDate.AddDays(days);
+					try
+					{
+						info.ExpirationDate = baseDate.AddDays(days);
+					}
+					catch (ArgumentOutOfRangeException)
+					{
+						info.ExpirationDate = DateTime.MaxValue;
+					}
 				}
 
-				info.AppliedKeys.Add(activationKey);
+				info.AppliedKeys.Add(cleanedKey);
 				info.LastRunDate = DateTime.Now;
 				SaveLicenseInfo(info);
 
 				message = $"Kích hoạt thành công!\n\nHạn sử dụng mới: {(info.ExpirationDate == DateTime.MaxValue ? "Vĩnh viễn" : info.ExpirationDate.ToString("dd/MM/yyyy HH:mm"))}";
 				return true;
 			}
-			catch
+			catch (Exception ex)
 			{
-				message = "Mã kích hoạt không hợp lệ hoặc bị lỗi định dạng.";
+				message = $"Mã kích hoạt không hợp lệ hoặc bị lỗi định dạng: {ex.Message}";
 				return false;
 			}
 		}
 
-		public static string GenerateKey(string hwId, int days)
+		public static string GenerateKey(string hwId, int days, string seq = "")
 		{
-			string guid = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
-			string data = $"{hwId}|{days}|{guid}";
-			string signature = ComputeSHA256String($"{data}|{SecretKey}").Substring(0, 16);
-			string rawKey = $"{data}|{signature}";
-			return Convert.ToBase64String(Encoding.UTF8.GetBytes(rawKey));
+			// 1. Lấy 8 ký tự đầu của Hardware ID và chuyển sang mảng 4 bytes
+			string shortHwIdHex = hwId.Substring(0, Math.Min(8, hwId.Length)).ToUpper().PadRight(8, '0');
+			byte[] shortHwIdBytes = new byte[4];
+			for (int i = 0; i < 4; i++)
+			{
+				shortHwIdBytes[i] = Convert.ToByte(shortHwIdHex.Substring(i * 2, 2), 16);
+			}
+
+			// 2. Chuyển đổi số ngày sang mảng 2 bytes (big-endian)
+			byte[] daysBytes = new byte[2];
+			daysBytes[0] = (byte)(days >> 8);
+			daysBytes[1] = (byte)(days & 0xFF);
+
+			// 3. Tính toán byte phân biệt (seqByte) từ chuỗi seq
+			byte seqByte = 0;
+			if (!string.IsNullOrEmpty(seq))
+			{
+				int sum = 0;
+				foreach (char c in seq)
+				{
+					sum = (sum + (int)c) % 256;
+				}
+				seqByte = (byte)sum;
+			}
+
+			// 4. Tính toán signature từ shortHwIdHex | days | seqByte | SecretKey
+			string textToHash = $"{shortHwIdHex}|{days}|{seqByte}|{SecretKey}";
+			byte[] hashBytes = GetHashSha256(textToHash);
+			byte[] sigBytes = new byte[3];
+			Array.Copy(hashBytes, 0, sigBytes, 0, 3);
+
+			// 5. Gom nhóm thành mảng 10 bytes
+			byte[] payload = new byte[10];
+			Array.Copy(daysBytes, 0, payload, 0, 2);
+			Array.Copy(shortHwIdBytes, 0, payload, 2, 4);
+			payload[6] = seqByte;
+			Array.Copy(sigBytes, 0, payload, 7, 3);
+
+			// 6. Mã hóa sang Base32 (16 ký tự)
+			string rawBase32 = Base32.Encode(payload);
+
+			// 7. Format thành XXXX-XXXX-XXXX-XXXX
+			StringBuilder formatted = new StringBuilder();
+			for (int i = 0; i < 16; i++)
+			{
+				if (i > 0 && i % 4 == 0)
+				{
+					formatted.Append("-");
+				}
+				formatted.Append(rawBase32[i]);
+			}
+			return formatted.ToString();
 		}
 
 		private static string ComputeSHA256String(string text)
@@ -313,6 +424,68 @@ namespace TPL
 			using CryptoStream cs = new(ms, decryptor, CryptoStreamMode.Read);
 			using StreamReader sr = new(cs);
 			return sr.ReadToEnd();
+		}
+	}
+
+	public static class Base32
+	{
+		private const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+		public static string Encode(byte[] data)
+		{
+			if (data == null || data.Length != 10)
+				throw new ArgumentException("Data must be exactly 10 bytes.");
+
+			char[] chars = new char[16];
+			int charIndex = 0;
+			int byteIndex = 0;
+			int bitBuffer = 0;
+			int bitCount = 0;
+
+			while (charIndex < 16)
+			{
+				if (bitCount < 5)
+				{
+					bitBuffer = (bitBuffer << 8) | data[byteIndex++];
+					bitCount += 8;
+				}
+				int index = (bitBuffer >> (bitCount - 5)) & 0x1F;
+				bitCount -= 5;
+				chars[charIndex++] = Alphabet[index];
+			}
+			return new string(chars);
+		}
+
+		public static byte[] Decode(string input)
+		{
+			StringBuilder sb = new StringBuilder();
+			foreach (char c in input.ToUpper())
+			{
+				if (Alphabet.IndexOf(c) >= 0)
+					sb.Append(c);
+			}
+			string sanitized = sb.ToString();
+			if (sanitized.Length != 16)
+				throw new ArgumentException("Invalid Base32 string length.");
+
+			byte[] data = new byte[10];
+			int byteIndex = 0;
+			int bitBuffer = 0;
+			int bitCount = 0;
+
+			for (int i = 0; i < 16; i++)
+			{
+				int value = Alphabet.IndexOf(sanitized[i]);
+				bitBuffer = (bitBuffer << 5) | value;
+				bitCount += 5;
+
+				if (bitCount >= 8)
+				{
+					data[byteIndex++] = (byte)((bitBuffer >> (bitCount - 8)) & 0xFF);
+					bitCount -= 8;
+				}
+			}
+			return data;
 		}
 	}
 }
