@@ -1,4 +1,5 @@
 <Window x:Class="TPL.MainWindow"
+        xmlns:local="clr-namespace:TPL"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="TPL" Width="565" Height="505"
@@ -51,9 +52,9 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd" CornerRadius="6" Padding="14,7" Background="{StaticResource AccentBrush}">
+                        <local:SquircleBorder x:Name="bd" CornerRadius="8" Padding="14,7" Background="{StaticResource AccentBrush}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        </local:SquircleBorder>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentDarkBrush}"/>
@@ -76,11 +77,11 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                        <local:SquircleBorder x:Name="bd" CornerRadius="8" Padding="{TemplateBinding Padding}"
                                 Background="{StaticResource SurfaceBrush}"
                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        </local:SquircleBorder>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="bd" Property="Background" Value="{StaticResource ThumbBrush}"/>
@@ -106,11 +107,11 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
-                        <Border Background="{TemplateBinding Background}"
+                        <local:SquircleBorder Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
                             <ScrollViewer x:Name="PART_ContentHost"/>
-                        </Border>
+                        </local:SquircleBorder>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsFocused" Value="True">
                                 <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
@@ -141,7 +142,7 @@
             </Setter>
         </Style>
         <ControlTemplate x:Key="ComboBoxToggle" TargetType="ToggleButton">
-            <Border x:Name="bd" CornerRadius="6" Background="{StaticResource SurfaceBrush}"
+            <local:SquircleBorder x:Name="bd" CornerRadius="8" Background="{StaticResource SurfaceBrush}"
                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -151,7 +152,7 @@
                     <Path Grid.Column="1" Data="M 0 0 L 4 4 L 8 0 Z" Fill="{StaticResource LabelBrush}"
                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Grid>
-            </Border>
+            </local:SquircleBorder>
             <ControlTemplate.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
@@ -178,14 +179,14 @@
                             <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}"
                                    Placement="Bottom" AllowsTransparency="True" Focusable="False"
                                    PopupAnimation="Slide">
-                                <Border Background="{StaticResource SurfaceBrush}"
+                                <local:SquircleBorder Background="{StaticResource SurfaceBrush}"
                                         BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                                        CornerRadius="6" Margin="0,2,0,0"
-                                        MaxHeight="250" MinWidth="{TemplateBinding ActualWidth}">
+                                        CornerRadius="10" Padding="0,2,0,0"
+                                        >
                                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                                         <StackPanel IsItemsHost="True"/>
                                     </ScrollViewer>
-                                </Border>
+                                </local:SquircleBorder>
                             </Popup>
                         </Grid>
                     </ControlTemplate>
@@ -218,7 +219,7 @@
                         <Setter.Value>
                             <ControlTemplate TargetType="ScrollBar">
                                 <Grid>
-                                    <Border Background="{StaticResource TrackBrush}" CornerRadius="4"/>
+                                    <local:SquircleBorder Background="{StaticResource TrackBrush}" CornerRadius="4"/>
                                     <Track Name="PART_Track" IsDirectionReversed="True">
                                         <Track.DecreaseRepeatButton>
                                             <RepeatButton Command="ScrollBar.PageUpCommand" Background="Transparent" BorderThickness="0" Focusable="False">
@@ -233,7 +234,7 @@
                                             <Thumb>
                                                 <Thumb.Template>
                                                     <ControlTemplate>
-                                                        <Border Background="{StaticResource ThumbBrush}" CornerRadius="4" Margin="1"/>
+                                                        <local:SquircleBorder Background="{StaticResource ThumbBrush}" CornerRadius="4" Margin="1"/>
                                                     </ControlTemplate>
                                                 </Thumb.Template>
                                             </Thumb>
@@ -257,7 +258,7 @@
         </Style>
     </Window.Resources>
 
-    <Border CornerRadius="10" Background="{StaticResource BgBrush}"
+    <local:SquircleBorder CornerRadius="14" Background="{StaticResource BgBrush}"
             BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
@@ -267,14 +268,14 @@
             </Grid.RowDefinitions>
 
             <!-- TITLE BAR -->
-            <Border Grid.Row="0" Background="#12141A" CornerRadius="10,10,0,0"
+            <local:SquircleBorder Grid.Row="0" Background="#12141A" TopLeftRadius="14" TopRightRadius="14" BottomLeftRadius="0" BottomRightRadius="0"
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" Height="40">
                 <Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                        <Border Width="20" Height="20" CornerRadius="4" Background="{StaticResource AccentBrush}" Margin="0,0,8,0">
+                        <local:SquircleBorder Width="20" Height="20" CornerRadius="6" Background="{StaticResource AccentBrush}" Margin="0,0,8,0">
                             <TextBlock Text="P" Foreground="White" FontWeight="Bold" FontSize="12"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI"/>
-                        </Border>
+                        </local:SquircleBorder>
                         <TextBlock x:Name="txtTitle" Text="Batch Plot PDF — TPL"
                                    Foreground="{StaticResource FgBrush}" FontSize="12" FontWeight="SemiBold"
                                    VerticalAlignment="Center" FontFamily="Segoe UI"/>
@@ -284,7 +285,7 @@
                                 Click="BtnClose_Click"/>
                     </StackPanel>
                 </Grid>
-            </Border>
+            </local:SquircleBorder>
 
             <!-- CONTENT -->
             <Grid Grid.Row="1" Margin="14,8,14,0">
@@ -397,7 +398,7 @@
                         </Grid>
 
                         <!-- Image Options -->
-                        <Border Grid.Column="1" Background="{StaticResource SurfaceBrush}" CornerRadius="6" Padding="10,8"
+                        <local:SquircleBorder Grid.Column="1" Background="{StaticResource SurfaceBrush}" CornerRadius="10" Padding="10,8"
 								BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Margin="15,0,0,0" Height="80" VerticalAlignment="Top">
                             <StackPanel>
                                 <!-- Row 1: Checkbox -->
@@ -415,7 +416,7 @@
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
-                        </Border>
+                        </local:SquircleBorder>
                     </Grid>
                 </StackPanel>
 
@@ -423,7 +424,7 @@
                 <StackPanel Grid.Column="2">
                     <!-- Section 4: Scope -->
                     <TextBlock Text="4. SCOPE" Style="{StaticResource SectionHeader}" FontSize="12" />
-                    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="6"
+                    <local:SquircleBorder Background="{StaticResource SurfaceBrush}" CornerRadius="10"
                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10,6">
                         <StackPanel>
                             <RadioButton x:Name="rbAll" GroupName="Scope" Content="All Layouts" Style="{StaticResource DarkRadio}" Checked="TriggerPreview" />
@@ -434,11 +435,11 @@
                                 <RadioButton x:Name="rbSelect" GroupName="Scope" Content="Manual Select" Style="{StaticResource DarkRadio}" Checked="TriggerPreview" />
                             </DockPanel>
                         </StackPanel>
-                    </Border>
+                    </local:SquircleBorder>
 
                     <!-- Section 5: Sort -->
                     <TextBlock Text="5. SORT ORDER" Style="{StaticResource SectionHeader}" Margin="0,10,0,6" FontSize="12"/>
-                    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="6"
+                    <local:SquircleBorder Background="{StaticResource SurfaceBrush}" CornerRadius="10"
                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10,6">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -474,23 +475,23 @@
                                 </Button.Background>
                             </Button>
                         </Grid>
-                    </Border>
+                    </local:SquircleBorder>
 
                     <!-- Section 6: Orientation -->
                     <TextBlock Text="6. ORIENTATION" Style="{StaticResource SectionHeader}" Margin="0,10,0,6" FontSize="12"/>
-                    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="6"
+                    <local:SquircleBorder Background="{StaticResource SurfaceBrush}" CornerRadius="10"
                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10,6">
                         <StackPanel Orientation="Horizontal" Height="20">
                             <RadioButton x:Name="rbOrientAuto" GroupName="Orientation" Content="Auto" IsChecked="True" Style="{StaticResource DarkRadio}" Margin="0,0,10,0" FontSize="11" />
                             <RadioButton x:Name="rbOrientPortrait" GroupName="Orientation" Content="Portrait" Style="{StaticResource DarkRadio}" Margin="0,0,10,0" FontSize="11" />
                             <RadioButton x:Name="rbOrientLandscape" GroupName="Orientation" Content="Landscape" Style="{StaticResource DarkRadio}" FontSize="11" />
                         </StackPanel>
-                    </Border>
+                    </local:SquircleBorder>
                 </StackPanel>
             </Grid>
 
             <!-- BOTTOM BAR -->
-            <Border Grid.Row="2" Background="#12141A" Padding="14,8" CornerRadius="0,0,10,10" Height="50">
+            <local:SquircleBorder Grid.Row="2" Background="#12141A" Padding="14,8" TopLeftRadius="0" TopRightRadius="0" BottomLeftRadius="14" BottomRightRadius="14" Height="50">
                 <DockPanel>
                     <TextBlock x:Name="lblCount" Text="Ready" DockPanel.Dock="Left"
                                Foreground="{StaticResource LabelBrush}" FontFamily="Segoe UI"
@@ -507,7 +508,7 @@
                                 Click="BtnCancel_Click"/>
                     </StackPanel>
                 </DockPanel>
-            </Border>
+            </local:SquircleBorder>
         </Grid>
-    </Border>
+    </local:SquircleBorder>
 </Window>

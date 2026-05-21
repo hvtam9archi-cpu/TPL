@@ -1,4 +1,5 @@
 <Window x:Class="TPL.LicenseWindow"
+        xmlns:local="clr-namespace:TPL"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="License Manager - TPL"
@@ -46,10 +47,10 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                        <local:SquircleBorder x:Name="border" CornerRadius="8" Padding="{TemplateBinding Padding}"
                                 Background="{StaticResource AccentBrush}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        </local:SquircleBorder>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="{StaticResource AccentDarkBrush}"/>
@@ -74,11 +75,11 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                        <local:SquircleBorder x:Name="border" CornerRadius="8" Padding="{TemplateBinding Padding}"
                                 Background="{StaticResource SurfaceBrush}" 
                                 BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        </local:SquircleBorder>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#3A3D45"/>
@@ -96,10 +97,10 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                        <local:SquircleBorder x:Name="border" CornerRadius="8" Padding="{TemplateBinding Padding}"
                                 Background="#3B1C1C" BorderBrush="#5C2D2D" BorderThickness="1">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        </local:SquircleBorder>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#4B2222"/>
@@ -127,12 +128,12 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
-                        <Border Background="{TemplateBinding Background}" 
+                        <local:SquircleBorder Background="{TemplateBinding Background}" 
                                 BorderBrush="{TemplateBinding BorderBrush}" 
                                 BorderThickness="{TemplateBinding BorderThickness}" 
-                                CornerRadius="6">
+                                CornerRadius="8">
                             <ScrollViewer x:Name="PART_ContentHost" Margin="0" VerticalAlignment="Center"/>
-                        </Border>
+                        </local:SquircleBorder>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsFocused" Value="True">
                                 <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
@@ -152,13 +153,13 @@
             </Grid.RowDefinitions>
 
             <!-- TITLE BAR -->
-            <Border Grid.Row="0" Background="#12141A" CornerRadius="10,10,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <local:SquircleBorder Grid.Row="0" Background="#12141A" TopLeftRadius="14" TopRightRadius="14" BottomLeftRadius="0" BottomRightRadius="0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
-                        <Border Width="22" Height="22" CornerRadius="5" Background="{StaticResource AccentBrush}" Margin="0,0,10,0">
+                        <local:SquircleBorder Width="22" Height="22" CornerRadius="6" Background="{StaticResource AccentBrush}" Margin="0,0,10,0">
                             <TextBlock Text="L" Foreground="White" FontWeight="Bold" FontSize="13" 
                                        HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI"/>
-                        </Border>
+                        </local:SquircleBorder>
                         <TextBlock Text="Bản Quyền Kích Hoạt - TPL" 
                                    Foreground="{StaticResource FgBrush}" FontSize="13" FontWeight="SemiBold" 
                                    VerticalAlignment="Center" FontFamily="Segoe UI"/>
@@ -169,7 +170,7 @@
                                 Click="BtnClose_Click" BorderThickness="0"/>
                     </StackPanel>
                 </Grid>
-            </Border>
+            </local:SquircleBorder>
 
             <!-- CONTENT -->
             <StackPanel Grid.Row="1" Margin="20,15,20,20">
