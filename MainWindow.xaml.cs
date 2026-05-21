@@ -67,16 +67,48 @@ namespace TPL
 		private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
 		private void BtnCancel_Click(object sender, RoutedEventArgs e) => Close();
 
-		// ── Printer changed → reload papers ──
+		// ── Printer changed → reload papers + toggle file-specific controls ──
 		private void CbPrinters_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
 		{
 			if (cbPrinters.SelectedItem != null)
 			{
-				var papers = PlotHelper.GetPaperSizes(cbPrinters.SelectedItem.ToString());
+				string deviceName = cbPrinters.SelectedItem.ToString();
+				var papers = PlotHelper.GetPaperSizes(deviceName);
 				cbPapers.Items.Clear();
 				foreach (var p in papers) cbPapers.Items.Add(p);
 				if (cbPapers.Items.Count > 0) cbPapers.SelectedIndex = 0;
+
+				// Phân biệt máy in file vs máy in vật lý
+				bool isFile = PlotHelper.IsFilePrinter(deviceName);
+				UpdateFileOutputControls(isFile);
 			}
+		}
+
+		/// <summary>
+		/// Enable/Disable các control chỉ liên quan đến xuất file (PDF, DWF, PLT...).
+		/// Khi chọn máy in vật lý (Canon, HP...), các option này bị vô hiệu hóa.
+		/// </summary>
+		private void UpdateFileOutputControls(bool isFilePrinter)
+		{
+			// Output path & filename
+			if (txtFileName != null) txtFileName.IsEnabled = isFilePrinter;
+			if (txtPath != null) txtPath.IsEnabled = isFilePrinter;
+			if (btnBrowsePath != null) btnBrowsePath.IsEnabled = isFilePrinter;
+			if (lblFileName != null) lblFileName.IsEnabled = isFilePrinter;
+			if (lblFolder != null) lblFolder.IsEnabled = isFilePrinter;
+
+			// PDF/Image post-processing options
+			if (chkMergePdf != null) { chkMergePdf.IsEnabled = isFilePrinter; if (!isFilePrinter) chkMergePdf.IsChecked = false; }
+			if (chkPdfEditor != null) { chkPdfEditor.IsEnabled = isFilePrinter; if (!isFilePrinter) chkPdfEditor.IsChecked = false; }
+			if (chkOpenPdf != null) { chkOpenPdf.IsEnabled = isFilePrinter; if (!isFilePrinter) chkOpenPdf.IsChecked = false; }
+			if (chkConvertImage != null) { chkConvertImage.IsEnabled = isFilePrinter; if (!isFilePrinter) chkConvertImage.IsChecked = false; }
+			if (pnlImgFormat != null) pnlImgFormat.IsEnabled = isFilePrinter && chkConvertImage.IsChecked == true;
+
+			// Orientation post-processing (chỉ ảnh hưởng PDF xuất file)
+			if (rbOrientAuto != null) rbOrientAuto.IsEnabled = isFilePrinter;
+			if (rbOrientPortrait != null) rbOrientPortrait.IsEnabled = isFilePrinter;
+			if (rbOrientLandscape != null) rbOrientLandscape.IsEnabled = isFilePrinter;
+			if (!isFilePrinter && rbOrientAuto != null) rbOrientAuto.IsChecked = true;
 		}
 
 		// ── Mode changed (Block / Layer) ──

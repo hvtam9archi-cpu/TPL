@@ -39,6 +39,11 @@
 			<Setter Property="FontSize" Value="12"/>
 			<Setter Property="Foreground" Value="{StaticResource LabelBrush}"/>
 			<Setter Property="VerticalAlignment" Value="Center"/>
+			<Style.Triggers>
+				<Trigger Property="IsEnabled" Value="False">
+					<Setter Property="Opacity" Value="0.4"/>
+				</Trigger>
+			</Style.Triggers>
 		</Style>
 
 		<!-- AccentButton -->
@@ -120,6 +125,11 @@
 					</ControlTemplate>
 				</Setter.Value>
 			</Setter>
+			<Style.Triggers>
+				<Trigger Property="IsEnabled" Value="False">
+					<Setter Property="Opacity" Value="0.4"/>
+				</Trigger>
+			</Style.Triggers>
 		</Style>
 		<!-- DarkComboBox -->
 		<Style x:Key="DarkComboBoxItem" TargetType="ComboBoxItem">
@@ -442,10 +452,10 @@
 							<RowDefinition Height="32"/>
 							<RowDefinition Height="32"/>
 						</Grid.RowDefinitions>
-						<TextBlock Grid.Row="0" Text="File Name:" Style="{StaticResource FieldLabel}"/>
+						<TextBlock x:Name="lblFileName" Grid.Row="0" Text="File Name:" Style="{StaticResource FieldLabel}"/>
 						<TextBox x:Name="txtFileName" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"
                                  Style="{StaticResource DarkTextBox}" Height="26"/>
-						<TextBlock Grid.Row="1" Text="Folder:" Style="{StaticResource FieldLabel}"/>
+						<TextBlock x:Name="lblFolder" Grid.Row="1" Text="Folder:" Style="{StaticResource FieldLabel}"/>
 						<TextBox x:Name="txtPath" Grid.Row="1" Grid.Column="1" Style="{StaticResource DarkTextBox}" Height="26"/>
 						<Button x:Name="btnBrowsePath" Grid.Row="1" Grid.Column="2" Content="Browse" Height="26"
                                 Style="{StaticResource DarkButton}" Margin="4,0,0,0" Click="BtnBrowsePath_Click"/>
@@ -570,7 +580,7 @@
                                FontSize="11" FontStyle="Italic" VerticalAlignment="Center" Width="200"/>
 					<StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
 						<Button x:Name="btnBackToEditor" Content="Editor" Visibility="Collapsed"
-                                Style="{StaticResource DarkButton}" Width="90" Height="36" Margin="0,0,6,0"
+                                Style="{StaticResource DarkButton}" Width="90" Height="36" Margin="0,-2,6,0"
                                 Click="BtnBackToEditor_Click"/>
 						<Button x:Name="btnPlot" Content="▶  START PLOT"
                                 Style="{StaticResource AccentButton}" Width="120" Height="36" FontSize="13"

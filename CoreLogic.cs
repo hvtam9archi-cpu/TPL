@@ -149,5 +149,19 @@ namespace TPL
 			layers.Sort();
 			return layers;
 		}
+
+		/// <summary>
+		/// Kiểm tra xem device có phải máy in xuất file (PDF, DWF, PLT...) hay máy in vật lý.
+		/// Trả về true nếu là máy in file, false nếu là máy in vật lý (Canon, HP, Epson...).
+		/// </summary>
+		public static bool IsFilePrinter(string deviceName)
+		{
+			if (string.IsNullOrEmpty(deviceName)) return true;
+			string lower = deviceName.ToLower();
+			// Các keyword nhận diện máy in xuất file (pc3 driver hoặc system printer ảo)
+			string[] fileKeywords = { "pdf", "dwf", "dwg", "png", "jpg", "jpeg", "tiff", "svg", "eps", "plt",
+				"publish to web", "dwfx", "design review" };
+			return fileKeywords.Any(k => lower.Contains(k));
+		}
 	}
 }
