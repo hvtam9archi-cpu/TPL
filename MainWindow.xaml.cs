@@ -51,6 +51,7 @@ namespace TPL
 				{
 					LoadData();
 					isInitializing = false;
+					UpdateOpenPdfState();
 					UpdatePreview();
 					SubscribeDatabaseEvents();
 				}
@@ -100,7 +101,7 @@ namespace TPL
 			// PDF/Image post-processing options
 			if (chkMergePdf != null) { chkMergePdf.IsEnabled = isFilePrinter; if (!isFilePrinter) chkMergePdf.IsChecked = false; }
 			if (chkPdfEditor != null) { chkPdfEditor.IsEnabled = isFilePrinter; if (!isFilePrinter) chkPdfEditor.IsChecked = false; }
-			if (chkOpenPdf != null) { chkOpenPdf.IsEnabled = isFilePrinter; if (!isFilePrinter) chkOpenPdf.IsChecked = false; }
+			UpdateOpenPdfState();
 			if (chkConvertImage != null) { chkConvertImage.IsEnabled = isFilePrinter; if (!isFilePrinter) chkConvertImage.IsChecked = false; }
 			if (pnlImgFormat != null) pnlImgFormat.IsEnabled = isFilePrinter && chkConvertImage.IsChecked == true;
 
@@ -109,6 +110,22 @@ namespace TPL
 			if (rbOrientPortrait != null) rbOrientPortrait.IsEnabled = isFilePrinter;
 			if (rbOrientLandscape != null) rbOrientLandscape.IsEnabled = isFilePrinter;
 			if (!isFilePrinter && rbOrientAuto != null) rbOrientAuto.IsChecked = true;
+		}
+
+		private void UpdateOpenPdfState()
+		{
+			if (chkOpenPdf == null) return;
+			bool isFilePrinter = true;
+			if (cbPrinters != null && cbPrinters.SelectedItem != null)
+			{
+				isFilePrinter = PlotHelper.IsFilePrinter(cbPrinters.SelectedItem.ToString());
+			}
+			bool shouldEnable = isFilePrinter && (chkPdfEditor == null || chkPdfEditor.IsChecked != true);
+			chkOpenPdf.IsEnabled = shouldEnable;
+			if (!shouldEnable)
+			{
+				chkOpenPdf.IsChecked = false;
+			}
 		}
 
 		// ── Mode changed (Block / Layer) ──
@@ -152,8 +169,8 @@ namespace TPL
 			{
 				if (chkMergePdf != null) chkMergePdf.IsChecked = false;
 				if (chkConvertImage != null) chkConvertImage.IsChecked = false;
-				if (chkOpenPdf != null) chkOpenPdf.IsChecked = false;
 			}
+			UpdateOpenPdfState();
 		}
 
 		// ── Preview triggers ──

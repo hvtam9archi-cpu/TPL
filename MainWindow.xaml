@@ -368,7 +368,7 @@
 					</StackPanel>
 					<StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,4,0">
 						<Button Content="✕" Width="32" Height="26" Style="{StaticResource DarkButton}" Padding="0"
-                                Click="BtnClose_Click" Foreground="White"/>
+                                Click="BtnClose_Click" Foreground="#FFF34C4C" Margin="0,0,10,0" Background="#FF6D4242"/>
 					</StackPanel>
 				</Grid>
 			</Border>
@@ -384,7 +384,7 @@
 				<!-- LEFT COLUMN -->
 				<StackPanel Grid.Column="0">
 					<!-- Section 1: Printer -->
-					<TextBlock Text="1. PRINTER — PAPER SIZE — STYLE" Style="{StaticResource SectionHeader}" FontSize="12"/>
+					<TextBlock Text="1. PRINTER - PAPER SIZE - STYLE" Style="{StaticResource SectionHeader}" FontSize="12"/>
 					<Grid Margin="0,0,0,4">
 						<Grid.ColumnDefinitions>
 							<ColumnDefinition Width="75"/>
@@ -469,18 +469,15 @@
 						</Grid.ColumnDefinitions>
 
 						<!-- PDF Options -->
-
-						<!-- Image Options -->
 						<Grid Grid.Column="0" VerticalAlignment="Center" Height="82">
 							<CheckBox x:Name="chkMergePdf" Content="Merge PDF" IsChecked="True"
                  Style="{StaticResource DarkCheck}" Foreground="#22C55E" FontWeight="Bold" Margin="0,0,0,57"
-                 />
+                 Checked="ChkMergePdf_Changed" Unchecked="ChkMergePdf_Changed"/>
 							<CheckBox x:Name="chkPdfEditor" Content="PDF Editor"
                  Style="{StaticResource DarkCheck}" Foreground="#C084FC" FontWeight="Bold"
                  Checked="ChkPdfEditor_Changed" Unchecked="ChkPdfEditor_Changed" Margin="0,29,0,30"/>
 							<CheckBox x:Name="chkOpenPdf" Content="Open when done" IsChecked="True"
-                 Style="{StaticResource DarkCheck}" 
-                 Unchecked="ChkMergePdf_Changed" Margin="0,55,0,5"/>
+                 Style="{StaticResource DarkCheck}" Margin="0,55,0,5"/>
 						</Grid>
 
 						<!-- Image Options -->
@@ -489,16 +486,25 @@
 							<StackPanel>
 								<!-- Row 1: Checkbox -->
 								<CheckBox x:Name="chkConvertImage" Content="Convert to Image"
-										  Style="{StaticResource DarkCheck}" Foreground="#60A5FA" FontWeight="Bold" Margin="0,0,0,4"
-										  Checked="ChkConvertImage_Changed" Unchecked="ChkMergePdf_Changed" HorizontalAlignment="Center"/>
+										  Style="{StaticResource DarkCheck}" Foreground="#60A5FA" FontWeight="Bold" Margin="0,-4,0,4"
+										  Checked="ChkConvertImage_Changed" Unchecked="ChkConvertImage_Changed" HorizontalAlignment="Center"/>
 								<StackPanel x:Name="pnlImgFormat" Orientation="Vertical">
+									<StackPanel.Style>
+										<Style TargetType="StackPanel">
+											<Style.Triggers>
+												<Trigger Property="IsEnabled" Value="False">
+													<Setter Property="Opacity" Value="0.4"/>
+												</Trigger>
+											</Style.Triggers>
+										</Style>
+									</StackPanel.Style>
 									<StackPanel Orientation="Horizontal" Width="99" RenderTransformOrigin="0.615,0.502" Margin="0,-1,0,0">
 										<RadioButton x:Name="rbPng" Content="PNG" HorizontalAlignment="Left" Style="{StaticResource DarkRadio}" Margin="0,0,16,0" />
 										<RadioButton x:Name="rbJpg" Content="JPG" Style="{StaticResource DarkRadio}" IsChecked="True" Width="39" />
 									</StackPanel>
-									<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,-1,0,0">
-										<TextBlock Text="DPI:" Style="{StaticResource FieldLabel}" Margin="10,0,8,0" Width="30" />
-										<TextBox x:Name="txtDpi" Text="600" VerticalAlignment="Top" Style="{StaticResource DarkTextBox}" Width="55" Height="22           " TextAlignment="Center" FontSize="11" Margin="-10,0,0,0" />
+									<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
+										<TextBlock Text="DPI:" Style="{StaticResource FieldLabel}" Margin="10,-3,8,0" Width="30" />
+										<TextBox x:Name="txtDpi" Text="600" VerticalAlignment="Top" Style="{StaticResource DarkTextBox}" Width="55" Height="25" TextAlignment="Center" Margin="-10,-3,0,0" />
 									</StackPanel>
 								</StackPanel>
 							</StackPanel>
@@ -583,7 +589,7 @@
                                 Style="{StaticResource DarkButton}" Width="90" Height="36" Margin="0,-2,6,0"
                                 Click="BtnBackToEditor_Click"/>
 						<Button x:Name="btnPlot" Content="▶  START PLOT"
-                                Style="{StaticResource AccentButton}" Width="120" Height="36" FontSize="13"
+                                Style="{StaticResource AccentButton}" Width="114" Height="36"
                                 Click="BtnPlot_Click" Margin="0,-2,0,0"/>
 						<Button x:Name="btnCancel" Content="Cancel"
                                 Style="{StaticResource DarkButton}" Width="90" Height="36" Margin="6,-2,0,0"
