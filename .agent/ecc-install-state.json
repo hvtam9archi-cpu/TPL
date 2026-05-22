@@ -1,0 +1,13 @@
+{
+  "target": "antigravity",
+  "modules": [
+    "csharp"
+  ],
+  "components": [
+    "rules",
+    "skills",
+    "workflows"
+  ],
+  "timestamp": "2026-05-22T12:00:00.000Z",
+  "status": "success"
+}

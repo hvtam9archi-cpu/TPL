@@ -7,27 +7,36 @@ namespace TPL
 {
     public class RibbonSetup : IExtensionApplication
     {
-        private static bool _isLoaded = false;
+        private const string TabId = "TH_TOOLS_TAB";
+        private const string TabTitle = "TH Tools";
+        private readonly RibbonCommandHandler _cmdHandler = new RibbonCommandHandler();
 
         public void Initialize()
         {
-            ComponentManager.ItemInitialized += ComponentManager_ItemInitialized;
-            if (ComponentManager.Ribbon != null)
-            {
-                CreateRibbon();
-            }
+            Autodesk.AutoCAD.ApplicationServices.Application.Idle += Application_Idle;
+            Autodesk.AutoCAD.ApplicationServices.Application.SystemVariableChanged += Application_SystemVariableChanged;
         }
 
         public void Terminate()
         {
+            Autodesk.AutoCAD.ApplicationServices.Application.Idle -= Application_Idle;
+            Autodesk.AutoCAD.ApplicationServices.Application.SystemVariableChanged -= Application_SystemVariableChanged;
         }
 
-        private void ComponentManager_ItemInitialized(object sender, RibbonItemEventArgs e)
+        private void Application_Idle(object sender, EventArgs e)
         {
-            if (ComponentManager.Ribbon != null && !_isLoaded)
+            if (ComponentManager.Ribbon != null)
+            {
+                Autodesk.AutoCAD.ApplicationServices.Application.Idle -= Application_Idle;
+                CreateRibbon();
+            }
+        }
+
+        private void Application_SystemVariableChanged(object sender, Autodesk.AutoCAD.ApplicationServices.SystemVariableChangedEventArgs e)
+        {
+            if (e.Name.Equals("WSCURRENT", StringComparison.OrdinalIgnoreCase) && ComponentManager.Ribbon != null)
             {
                 CreateRibbon();
-                ComponentManager.ItemInitialized -= ComponentManager_ItemInitialized;
             }
         }
 
@@ -77,43 +86,42 @@ namespace TPL
                 RibbonControl ribbon = ComponentManager.Ribbon;
                 if (ribbon == null) return;
 
-                // 1. Tab "TH Tools"
-                RibbonTab tab = ribbon.FindTab("TH_TOOLS_TAB");
+                // 1. Tìm hoặc Tạo Tab "TH Tools"
+                RibbonTab tab = ribbon.FindTab(TabId);
                 if (tab == null)
                 {
                     tab = new RibbonTab
                     {
-                        Title = "TH Tools",
-                        Id = "TH_TOOLS_TAB"
+                        Title = TabTitle,
+                        Id = TabId
                     };
                     ribbon.Tabs.Add(tab);
+                    tab.IsActive = true; // Ép tab hiển thị ngay lúc khởi động
                 }
 
-                // Kiểm tra xem Panel đã có chưa để tránh bị duplicate khi netload lại
-                bool hasPanel = false;
+                // 2. Tìm hoặc Tạo Panel "TPL Plotter"
+                string panelId = "TPL_PLOTTER_PANEL";
+                RibbonPanel panel = null;
                 foreach (RibbonPanel p in tab.Panels)
                 {
-                    if (p.Source.Title == "TPL Plotter")
+                    if (p.Source.Id == panelId || p.Source.Title == "TPL Plotter")
                     {
-                        hasPanel = true;
+                        panel = p;
                         break;
                     }
                 }
 
-                if (!hasPanel)
+                if (panel == null)
                 {
-                    // 2. Panel "TPL Plotter"
-                    RibbonPanelSource panelSource = new()
+                    RibbonPanelSource panelSource = new RibbonPanelSource
                     {
-                        Title = "TPL Plotter"
+                        Title = "TPL Plotter",
+                        Id = panelId
                     };
-                    RibbonPanel panel = new()
+                    panel = new RibbonPanel
                     {
                         Source = panelSource
                     };
-                    tab.Panels.Add(panel);
-
-                    var cmdHandler = new RibbonCommandHandler();
 
                     // Load icons từ embedded resource với kích thước chuẩn xác
                     System.Windows.Media.ImageSource tplIconLarge = null;
@@ -131,13 +139,14 @@ namespace TPL
                     catch { }
 
                     // 3. Button "TPL Plotter"
-                    RibbonButton btnTpl = new()
+                    RibbonButton btnTpl = new RibbonButton
                     {
+                        Id = "TPL_PLOTTER",
                         Text = "\nTPL Plotter", // Thêm \n để hạ thấp text xuống 1 chút
                         ShowText = true,
                         ShowImage = true,
-                        CommandParameter = "\x1B\x1BTPL ", // ESC ESC TPL
-                        CommandHandler = cmdHandler,
+                        CommandParameter = "TPL",
+                        CommandHandler = _cmdHandler,
                         Size = RibbonItemSize.Large,
                         Orientation = System.Windows.Controls.Orientation.Vertical
                     };
@@ -145,13 +154,14 @@ namespace TPL
                     if (tplIconSmall != null) btnTpl.Image = tplIconSmall;
 
                     // 4. Button "TPL License"
-                    RibbonButton btnLicense = new()
+                    RibbonButton btnLicense = new RibbonButton
                     {
+                        Id = "TPL_LICENSE",
                         Text = "\nTPL License", // Thêm \n để hạ thấp text xuống 1 chút
                         ShowText = true,
                         ShowImage = true,
-                        CommandParameter = "\x1B\x1BTPL_LICENSE ",
-                        CommandHandler = cmdHandler,
+                        CommandParameter = "TPL_LICENSE",
+                        CommandHandler = _cmdHandler,
                         Size = RibbonItemSize.Large,
                         Orientation = System.Windows.Controls.Orientation.Vertical
                     };
@@ -161,31 +171,49 @@ namespace TPL
                     // Thêm vào Panel — bố cục hàng ngang (không dùng RibbonRowBreak)
                     panelSource.Items.Add(btnTpl);
                     panelSource.Items.Add(btnLicense);
+
+                    tab.Panels.Add(panel);
                 }
 
-                _isLoaded = true;
                 tab.IsActive = true;
             }
             catch (System.Exception ex)
             {
-                Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage($"\n[TPL] Error loading ribbon: {ex.Message}\n");
+                Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage($"\n[TPL] Error loading ribbon: {ex.Message}\n");
             }
         }
     }
 
     public class RibbonCommandHandler : System.Windows.Input.ICommand
     {
-        public bool CanExecute(object parameter) => true;
 #pragma warning disable CS0067 // Event never used
         public event EventHandler CanExecuteChanged;
 #pragma warning restore CS0067
+        public bool CanExecute(object parameter) => true;
 
         public void Execute(object parameter)
         {
-            if (parameter is RibbonButton button && button.CommandParameter != null)
+            string cmd = null;
+            if (parameter is RibbonButton button)
             {
-                Document doc = Application.DocumentManager.MdiActiveDocument;
-                doc?.SendStringToExecute((string)button.CommandParameter, true, false, false);
+                cmd = button.CommandParameter as string;
+            }
+            else if (parameter is string s)
+            {
+                cmd = s;
+            }
+
+            if (!string.IsNullOrEmpty(cmd))
+            {
+                Document doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+                if (doc != null)
+                {
+                    // Tách thành 2 lời gọi SendStringToExecute riêng biệt để tránh dính lệnh:
+                    // Gọi 1: Hủy lệnh đang chạy
+                    doc.SendStringToExecute("\x1B\x1B", true, false, false);
+                    // Gọi 2: Gửi tên lệnh (buffer riêng, không bị dính)
+                    doc.SendStringToExecute(cmd + "\n", true, false, false);
+                }
             }
         }
     }

@@ -1,0 +1,21 @@
+{
+  "name": "tpl",
+  "version": "1.0.0",
+  "description": "**TPL** (trước đây là NDPL) là một Plugin mạnh mẽ dành cho AutoCAD được viết bằng C# .NET. Công cụ này chuyên hỗ trợ quá trình in ấn hàng loạt (Batch Plotting) và quản lý, chỉnh sửa tệp PDF đầu ra một cách trực quan, hiệu quả.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hvtam9archi-cpu/TPL.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/hvtam9archi-cpu/TPL/issues"
+  },
+  "homepage": "https://github.com/hvtam9archi-cpu/TPL#readme"
+}

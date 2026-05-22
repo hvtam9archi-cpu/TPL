@@ -22,8 +22,11 @@
     <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.0" SeriesMax="R25.1" />
 
     <ComponentEntry AppName="TPL"
+                    Version="1.0"
                     ModuleName="./Contents/TPL.dll"
-                    LoadReasons="OnAutoCADStartup">
+                    AppDescription="AutoCAD Batch Plotting Plugin"
+                    LoadOnCommandInvocation="True"
+                    LoadOnAutoCADStartup="True">
       <Commands GroupName="TPL_COMMANDS">
         <Command Global="TPL" Local="TPL" />
       </Commands>
