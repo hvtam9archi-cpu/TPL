@@ -105,6 +105,7 @@ namespace TPL
 
 		// PDF Viewer (WinForms control hosted via WindowsFormsHost)
 		private readonly PdfViewer _pdfViewer;
+		private MemoryStream _currentPreviewStream;
 
 		// ─── Constructor ────────────────────────────────────────────────────
 		private PdfEditorWindow()
@@ -276,13 +277,16 @@ namespace TPL
 				try
 				{
 					var oldDoc = _pdfViewer.Document;
+					var oldStream = _currentPreviewStream;
 
 					// Load from cached bytes — no file I/O, instant preview
 					var ms = new MemoryStream(item.PreviewData);
+					_currentPreviewStream = ms;
 					var pdfDoc = PdfiumViewer.PdfDocument.Load(ms);
 					_pdfViewer.Document = pdfDoc;
 
 					oldDoc?.Dispose();
+					oldStream?.Dispose();
 					txtNoPreview.Visibility = Visibility.Collapsed;
 				}
 				catch (Exception ex)
@@ -835,6 +839,8 @@ namespace TPL
 				var oldDoc = _pdfViewer?.Document;
 				if (_pdfViewer != null) _pdfViewer.Document = null;
 				oldDoc?.Dispose();
+				_currentPreviewStream?.Dispose();
+				_currentPreviewStream = null;
 			}
 			catch { }
 
