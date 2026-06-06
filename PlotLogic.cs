@@ -132,7 +132,7 @@ namespace TPL
                     if (settings.FrameNames.Any(fn => string.Equals(name, fn, StringComparison.OrdinalIgnoreCase)))
                     {
                         if (string.IsNullOrEmpty(layoutName)) layoutName = GetLayoutName(ent.OwnerId, tr);
-                        frames.Add(new PlotFrame { Id = id, Extents = br.GeometricExtents, LayoutName = layoutName });
+                        frames.Add(new PlotFrame { Id = id, Extents = CalculateBlockExtents(br, tr), LayoutName = layoutName });
                     }
                 }
             }
@@ -166,6 +166,153 @@ namespace TPL
                 return lay.LayoutName;
             }
             return "Model";
+        }
+
+        /// <summary>
+        /// Tính Extents của BlockReference mà bỏ qua phần DefinedWidth dư thừa của MText.
+        /// Duyệt từng entity con trong Block Definition, với MText thì dùng ActualWidth/ActualHeight
+        /// thay vì GeometricExtents (bị ảnh hưởng bởi DefinedWidth).
+        /// </summary>
+        private static Extents3d CalculateBlockExtents(BlockReference br, Transaction tr)
+        {
+            BlockTableRecord btr = (BlockTableRecord)tr.GetObject(
+                br.IsDynamicBlock ? br.DynamicBlockTableRecord : br.BlockTableRecord,
+                OpenMode.ForRead);
+
+            Extents3d? combinedExtents = null;
+            Matrix3d blockTransform = br.BlockTransform;
+
+            foreach (ObjectId entId in btr)
+            {
+                Entity ent = tr.GetObject(entId, OpenMode.ForRead) as Entity;
+                if (ent == null || ent.IsErased || !ent.Visible) continue;
+
+                // Bỏ qua entity trên layer bị tắt/frozen
+                try
+                {
+                    LayerTableRecord layer = (LayerTableRecord)tr.GetObject(ent.LayerId, OpenMode.ForRead);
+                    if (layer.IsOff || layer.IsFrozen) continue;
+                }
+                catch { }
+
+                Extents3d entExtents;
+                try
+                {
+                    if (ent is MText mt && mt.Width > 0 && mt.ActualWidth < mt.Width)
+                    {
+                        // MText có DefinedWidth lớn hơn nội dung thực → tính thủ công
+                        entExtents = CalculateMTextActualExtents(mt);
+                    }
+                    else
+                    {
+                        entExtents = ent.GeometricExtents;
+                    }
+                }
+                catch { continue; } // Entity không có extents hợp lệ
+
+                // Transform từ Block Definition Space → World Space
+                entExtents.TransformBy(blockTransform);
+
+                if (combinedExtents == null)
+                    combinedExtents = entExtents;
+                else
+                {
+                    var current = combinedExtents.Value;
+                    current.AddExtents(entExtents);
+                    combinedExtents = current;
+                }
+            }
+
+            // Xử lý AttributeReference (nằm trực tiếp trên BlockReference, không nằm trong BTR)
+            foreach (ObjectId attId in br.AttributeCollection)
+            {
+                try
+                {
+                    AttributeReference att = tr.GetObject(attId, OpenMode.ForRead) as AttributeReference;
+                    if (att == null || att.IsErased || !att.Visible) continue;
+                    Extents3d attExt = att.GeometricExtents;
+                    if (combinedExtents == null)
+                        combinedExtents = attExt;
+                    else
+                    {
+                        var current = combinedExtents.Value;
+                        current.AddExtents(attExt);
+                        combinedExtents = current;
+                    }
+                }
+                catch { }
+            }
+
+            // Fallback: nếu block rỗng hoặc không tính được → dùng GeometricExtents gốc
+            return combinedExtents ?? br.GeometricExtents;
+        }
+
+        /// <summary>
+        /// Tính bounding box thực tế của MText dựa trên ActualWidth/ActualHeight,
+        /// bỏ qua DefinedWidth (Width) bị kéo dài.
+        /// </summary>
+        private static Extents3d CalculateMTextActualExtents(MText mt)
+        {
+            double w = mt.ActualWidth;
+            double h = mt.ActualHeight;
+            Point3d loc = mt.Location;
+
+            // Tính offset dựa trên Attachment point
+            double offsetX = 0, offsetY = 0;
+            switch (mt.Attachment)
+            {
+                case AttachmentPoint.TopLeft:
+                case AttachmentPoint.MiddleLeft:
+                case AttachmentPoint.BottomLeft:
+                    offsetX = 0; break;
+                case AttachmentPoint.TopCenter:
+                case AttachmentPoint.MiddleCenter:
+                case AttachmentPoint.BottomCenter:
+                    offsetX = -w / 2; break;
+                case AttachmentPoint.TopRight:
+                case AttachmentPoint.MiddleRight:
+                case AttachmentPoint.BottomRight:
+                    offsetX = -w; break;
+            }
+            switch (mt.Attachment)
+            {
+                case AttachmentPoint.TopLeft:
+                case AttachmentPoint.TopCenter:
+                case AttachmentPoint.TopRight:
+                    offsetY = -h; break;
+                case AttachmentPoint.MiddleLeft:
+                case AttachmentPoint.MiddleCenter:
+                case AttachmentPoint.MiddleRight:
+                    offsetY = -h / 2; break;
+                case AttachmentPoint.BottomLeft:
+                case AttachmentPoint.BottomCenter:
+                case AttachmentPoint.BottomRight:
+                    offsetY = 0; break;
+            }
+
+            Point3d minPt = new Point3d(loc.X + offsetX, loc.Y + offsetY, loc.Z);
+            Point3d maxPt = new Point3d(loc.X + offsetX + w, loc.Y + offsetY + h, loc.Z);
+
+            // Xử lý MText có Rotation
+            if (Math.Abs(mt.Rotation) > 1e-6)
+            {
+                Matrix3d rotMat = Matrix3d.Rotation(mt.Rotation, mt.Normal, loc);
+                Point3d p1 = minPt.TransformBy(rotMat);
+                Point3d p2 = new Point3d(maxPt.X, minPt.Y, loc.Z).TransformBy(rotMat);
+                Point3d p3 = maxPt.TransformBy(rotMat);
+                Point3d p4 = new Point3d(minPt.X, maxPt.Y, loc.Z).TransformBy(rotMat);
+
+                minPt = new Point3d(
+                    Math.Min(Math.Min(p1.X, p2.X), Math.Min(p3.X, p4.X)),
+                    Math.Min(Math.Min(p1.Y, p2.Y), Math.Min(p3.Y, p4.Y)),
+                    loc.Z);
+                maxPt = new Point3d(
+                    Math.Max(Math.Max(p1.X, p2.X), Math.Max(p3.X, p4.X)),
+                    Math.Max(Math.Max(p1.Y, p2.Y), Math.Max(p3.Y, p4.Y)),
+                    loc.Z);
+            }
+
+            return new Extents3d(minPt, maxPt);
         }
 
         public static void SortFrames(List<PlotFrame> frames, PlotHelper.PlotSettingsData settings)
