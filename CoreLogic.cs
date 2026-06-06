@@ -67,7 +67,7 @@ namespace TPL
 			public bool ConvertToImage { get; set; }
 			public bool PdfEditor { get; set; }
 			public string ImageFormat { get; set; } = "PNG";
-			public int ImageDpi { get; set; } = 300;
+			public int ImageDpi { get; set; } = 600;
 			public List<ObjectId> ManualSelectionIds { get; set; } = new List<ObjectId>();
 		}
 
