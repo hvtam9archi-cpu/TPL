@@ -522,21 +522,20 @@ namespace TPL
             short bgPlot = (short)Application.GetSystemVariable("BACKGROUNDPLOT");
             Application.SetSystemVariable("BACKGROUNDPLOT", 0);
 
-            var progressForm = new System.Windows.Forms.Form
+            var progressWin = new ProgressWindow(L10n.T("prog_title"), plotJobs.Count);
+            try
             {
-                Text = L10n.T("prog_title"),
-                StartPosition = System.Windows.Forms.FormStartPosition.CenterParent,
-                FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog,
-                ClientSize = new System.Drawing.Size(380, 90),
-                MaximizeBox = false,
-                MinimizeBox = false,
-                ControlBox = false
-            };
-            var lblProg = new System.Windows.Forms.Label { Left = 10, Top = 10, Width = 360, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold), ForeColor = System.Drawing.Color.FromArgb(0, 102, 204) };
-            var pb = new System.Windows.Forms.ProgressBar { Left = 10, Top = 38, Width = 360, Height = 22, Minimum = 0, Maximum = plotJobs.Count, Style = System.Windows.Forms.ProgressBarStyle.Continuous };
-            var lblSub = new System.Windows.Forms.Label { Left = 10, Top = 65, Width = 360, ForeColor = System.Drawing.Color.DimGray, Font = new System.Drawing.Font("Segoe UI", 8.5F) };
-            progressForm.Controls.Add(lblProg); progressForm.Controls.Add(pb); progressForm.Controls.Add(lblSub);
-            Application.ShowModelessDialog(Application.MainWindow.Handle, progressForm);
+                var acWin = Application.MainWindow;
+                if (acWin != null)
+                {
+                    var helper = new System.Windows.Interop.WindowInteropHelper(progressWin)
+                    {
+                        Owner = acWin.Handle
+                    };
+                }
+            }
+            catch { }
+            progressWin.Show();
 
             var generatedFiles = new List<string>();
             int errorCount = 0;
@@ -576,12 +575,10 @@ namespace TPL
                             fileName = $"Page {i + 1}/{plotJobs.Count}";
                         }
 
-                        lblProg.Text = string.Format(L10n.T("prog_progress"), i + 1, plotJobs.Count);
-                        pb.Value = i;
-                        lblSub.Text = isFilePrinter
+                        string subLabel = isFilePrinter
                             ? string.Format(L10n.T("prog_file"), fileName)
                             : $"Printing: {fileName} → {settings.DeviceName}";
-                        progressForm.Update();
+                        progressWin.UpdateProgress(i, string.Format(L10n.T("prog_progress"), i + 1, plotJobs.Count), subLabel);
 
                         // Layout switch
                         LayoutManager.Current.CurrentLayout = LayoutName;
@@ -595,29 +592,20 @@ namespace TPL
                         }
 
                         {
-						    // ═══ Unified Plot Engine ═══
+						    // ═══ Unified Plot Engine (Silent Plotting) ═══
 						    using var pe = PlotFactory.CreatePublishEngine();
-						    using var ppd = new PlotProgressDialog(false, 1, true);
-						    ppd.set_PlotMsgString(PlotMessageIndex.DialogTitle, "TPL");
-						    ppd.set_PlotMsgString(PlotMessageIndex.CancelJobButtonMessage, "Cancel");
-						    ppd.set_PlotMsgString(PlotMessageIndex.CancelSheetButtonMessage, "Cancel");
-						    ppd.LowerPlotProgressRange = 0; ppd.UpperPlotProgressRange = 100; ppd.PlotProgressPos = 0;
-						    ppd.OnBeginPlot(); ppd.IsVisible = false;
-						    pe.BeginPlot(ppd, null);
+						    pe.BeginPlot(null, null);
 
 						    var pi = new PlotInfo { Layout = LayoutId, OverrideSettings = Ps };
 						    var piv = new PlotInfoValidator { MediaMatchingPolicy = MatchingPolicy.MatchEnabled };
 						    piv.Validate(pi);
 
 						    pe.BeginDocument(pi, doc.Name, null, 1, isFilePrinter, isFilePrinter ? filePath : "");
-						    ppd.OnBeginSheet(); ppd.LowerSheetProgressRange = 0; ppd.UpperSheetProgressRange = 100; ppd.SheetProgressPos = 0;
 						    pe.BeginPage(new PlotPageInfo(), pi, true, null);
 						    pe.BeginGenerateGraphics(null);
 						    pe.EndGenerateGraphics(null);
 						    pe.EndPage(null);
-						    ppd.SheetProgressPos = 100; ppd.OnEndSheet();
 						    pe.EndDocument(null);
-						    ppd.PlotProgressPos = 100; ppd.OnEndPlot();
 						    pe.EndPlot(null);
 						    if (isFilePrinter) generatedFiles.Add(filePath);
 						}
@@ -640,9 +628,7 @@ namespace TPL
                     ed.WriteMessage($"\n[TPL] Completed with {errorCount} error(s) out of {plotJobs.Count} page(s).");
                 }
 
-                pb.Value = plotJobs.Count;
-                lblProg.Text = string.Format(L10n.T("prog_progress"), plotJobs.Count, plotJobs.Count);
-                progressForm.Update();
+                progressWin.UpdateProgress(plotJobs.Count, string.Format(L10n.T("prog_progress"), plotJobs.Count, plotJobs.Count), "");
 
                 // ═══ POST-PROCESSING (chỉ áp dụng cho máy in file) ═══
                 if (isFilePrinter)
@@ -650,7 +636,7 @@ namespace TPL
                     // Phase 2: Post-processing Orientation
                     if (settings.Orientation != PlotHelper.PlotOrientation.Auto && generatedFiles.Count > 0)
                     {
-                        lblSub.Text = "Applying Orientation..."; progressForm.Update();
+                        progressWin.SetSubTitle("Applying Orientation...");
                         foreach (string pdfFile in generatedFiles)
                         {
                             if (!pdfFile.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) continue;
@@ -697,7 +683,7 @@ namespace TPL
                     {
                         try
                         {
-                            lblSub.Text = L10n.T("prog_merging"); progressForm.Update();
+                            progressWin.SetSubTitle(L10n.T("prog_merging"));
                             string mergedPath = Path.Combine(outDir, $"{baseName}.pdf");
                             if (File.Exists(mergedPath)) File.Delete(mergedPath);
                             using (var outDoc = new PdfDocument())
@@ -718,7 +704,7 @@ namespace TPL
                     {
                         try
                         {
-                            lblSub.Text = "Converting to Image..."; progressForm.Update();
+                            progressWin.SetSubTitle("Converting to Image...");
                             List<string> imageFiles = new();
                             for (int i = 0; i < generatedFiles.Count; i++)
                             {
@@ -758,28 +744,41 @@ namespace TPL
 
                             Commands.MainFormInstance?.Hide();
 
+                            try
+                            {
+                                var acWin = Application.MainWindow;
+                                if (acWin != null)
+                                {
+                                    var helper = new System.Windows.Interop.WindowInteropHelper(editor)
+                                    {
+                                        Owner = acWin.Handle
+                                    };
+                                }
+                            }
+                            catch { }
+
                             if (!editor.IsVisible)
-                                editor.Show();
+                                Application.ShowModelessWindow(editor);
                             else
                                 editor.Activate();
                         }
                         catch (System.Exception ex) { ed.WriteMessage($"\nPDF Editor error: {ex.Message}"); }
                     }
 
-                    progressForm.Close(); progressForm.Dispose();
+                    progressWin.Close();
                     if (settings.OpenPdf && finalPath != null && File.Exists(finalPath))
                         try { System.Diagnostics.Process.Start(finalPath); } catch { }
                 }
                 else
                 {
                     // Máy in vật lý: chỉ đóng progress, không post-process
-                    progressForm.Close(); progressForm.Dispose();
+                    progressWin.Close();
                     ed.WriteMessage($"\nTPL: Sent {plotJobs.Count} page(s) to printer [{settings.DeviceName}].");
                 }
             }
             finally
             {
-                try { progressForm.Close(); progressForm.Dispose(); } catch { }
+                try { progressWin.Close(); } catch { }
                 Application.SetSystemVariable("BACKGROUNDPLOT", bgPlot);
             }
         }
