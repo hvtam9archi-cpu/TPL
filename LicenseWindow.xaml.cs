@@ -22,28 +22,28 @@ namespace TPL
 
 			if (_info.IsHardwareChanged)
 			{
-				lblStatus.Text = "⚠️ Phát hiện thay đổi linh kiện phần cứng!\nBản quyền đã bị vô hiệu hoá.";
+				lblStatus.Text = L10n.T("lic_hw_changed");
 				lblStatus.Foreground = new SolidColorBrush(Colors.Red);
 			}
 			else if (_info.ExpirationDate == DateTime.MaxValue)
 			{
-				lblStatus.Text = "✅ Đã kích hoạt vĩnh viễn.";
+				lblStatus.Text = L10n.T("lic_permanent");
 				lblStatus.Foreground = new SolidColorBrush(Colors.LimeGreen);
 			}
 			else if (DateTime.Now > _info.ExpirationDate)
 			{
-				lblStatus.Text = $"❌ Đã hết hạn sử dụng vào ngày: {_info.ExpirationDate:dd/MM/yyyy}.\nVui lòng liên hệ tác giả để nhận mã kích hoạt.";
+				lblStatus.Text = string.Format(L10n.T("lic_expired"), _info.ExpirationDate.ToString("dd/MM/yyyy"));
 				lblStatus.Foreground = new SolidColorBrush(Colors.Red);
 			}
 			else if (DateTime.Now < _info.LastRunDate)
 			{
-				lblStatus.Text = "❌ Thời gian hệ thống bị sai lệch!\nVui lòng đồng bộ lại đồng hồ Windows.";
+				lblStatus.Text = L10n.T("lic_clock_error");
 				lblStatus.Foreground = new SolidColorBrush(Colors.Red);
 			}
 			else
 			{
 				int daysLeft = (int)(_info.ExpirationDate - DateTime.Now).TotalDays;
-				lblStatus.Text = $"✅ Đang dùng thử. Còn lại: {daysLeft} ngày.\n(Hết hạn: {_info.ExpirationDate:dd/MM/yyyy})";
+				lblStatus.Text = string.Format(L10n.T("lic_trial"), daysLeft, _info.ExpirationDate.ToString("dd/MM/yyyy"));
 				lblStatus.Foreground = new SolidColorBrush(Colors.Orange);
 			}
 		}
@@ -58,7 +58,7 @@ namespace TPL
 			if (!string.IsNullOrEmpty(txtHwId.Text))
 			{
 				Clipboard.SetText(txtHwId.Text);
-				MessageBox.Show("Đã copy mã phần cứng vào bộ nhớ tạm!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+				MessageBox.Show(L10n.T("lic_copied"), L10n.T("lic_info"), MessageBoxButton.OK, MessageBoxImage.Information);
 			}
 		}
 
@@ -67,13 +67,13 @@ namespace TPL
 			string key = txtKey.Text.Trim();
 			if (string.IsNullOrEmpty(key))
 			{
-				MessageBox.Show("Vui lòng nhập mã kích hoạt!", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Warning);
+				MessageBox.Show(L10n.T("lic_enter_key"), L10n.T("err_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
 				return;
 			}
 
 			if (LicenseManager.ActivateLicense(key, out string message))
 			{
-				MessageBox.Show(message, "Thành công", MessageBoxButton.OK, MessageBoxImage.Information);
+				MessageBox.Show(message, L10n.T("lic_success"), MessageBoxButton.OK, MessageBoxImage.Information);
 				// Reload info
 				_info = LicenseManager.GetLicenseInfo();
 				LoadLicenseData();
@@ -81,7 +81,7 @@ namespace TPL
 			}
 			else
 			{
-				MessageBox.Show(message, "Lỗi Kích Hoạt", MessageBoxButton.OK, MessageBoxImage.Error);
+				MessageBox.Show(message, L10n.T("lic_activate_error"), MessageBoxButton.OK, MessageBoxImage.Error);
 			}
 		}
 

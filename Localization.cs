@@ -103,6 +103,26 @@ namespace TPL
 			["dlg_add_pdf"] = "Chọn PDF để thêm",
 			["dlg_save_pdf"] = "Lưu PDF đã gộp",
 			["btn_plot_more"] = "+ Plot",
+			// License
+			["lic_hw_changed"] = "⚠️ Phát hiện thay đổi linh kiện phần cứng!\nBản quyền đã bị vô hiệu hoá.",
+			["lic_permanent"] = "✅ Đã kích hoạt vĩnh viễn.",
+			["lic_expired"] = "❌ Đã hết hạn sử dụng vào ngày: {0}.\nVui lòng liên hệ tác giả để nhận mã kích hoạt.",
+			["lic_clock_error"] = "❌ Thời gian hệ thống bị sai lệch!\nVui lòng đồng bộ lại đồng hồ Windows.",
+			["lic_trial"] = "✅ Đang dùng thử. Còn lại: {0} ngày.\n(Hết hạn: {1})",
+			["lic_copied"] = "Đã copy mã phần cứng vào bộ nhớ tạm!",
+			["lic_info"] = "Thông báo",
+			["lic_enter_key"] = "Vui lòng nhập mã kích hoạt!",
+			["lic_success"] = "Thành công",
+			["lic_activate_error"] = "Lỗi Kích Hoạt",
+			["lic_key_length"] = "Mã kích hoạt phải có độ dài đúng 16 ký tự.",
+			["lic_key_invalid_char"] = "Mã kích hoạt chứa ký tự không hợp lệ.",
+			["lic_key_bad_format"] = "Mã kích hoạt không đúng định dạng nhị phân.",
+			["lic_key_wrong_hw"] = "Mã kích hoạt này không dành cho máy tính (phần cứng) này.",
+			["lic_key_tampered"] = "Mã kích hoạt không hợp lệ hoặc đã bị chỉnh sửa.",
+			["lic_key_used"] = "Mã kích hoạt này đã được sử dụng rồi.",
+			["lic_activated"] = "Kích hoạt thành công!\n\nHạn sử dụng mới: {0}",
+			["lic_permanent_label"] = "Vĩnh viễn",
+			["lic_key_error_fmt"] = "Mã kích hoạt không hợp lệ hoặc bị lỗi định dạng: {0}",
 		};
 
 		// ─── English ──────────────────────────────────────────────────────────
@@ -174,6 +194,26 @@ namespace TPL
 			["dlg_add_pdf"] = "Select PDF to add",
 			["dlg_save_pdf"] = "Save merged PDF",
 			["btn_plot_more"] = "+ Plot",
+			// License
+			["lic_hw_changed"] = "⚠️ Hardware change detected!\nLicense has been deactivated.",
+			["lic_permanent"] = "✅ Permanently activated.",
+			["lic_expired"] = "❌ License expired on: {0}.\nPlease contact the author for an activation key.",
+			["lic_clock_error"] = "❌ System clock discrepancy detected!\nPlease sync your Windows clock.",
+			["lic_trial"] = "✅ Trial mode. Remaining: {0} day(s).\n(Expires: {1})",
+			["lic_copied"] = "Hardware ID copied to clipboard!",
+			["lic_info"] = "Information",
+			["lic_enter_key"] = "Please enter an activation key!",
+			["lic_success"] = "Success",
+			["lic_activate_error"] = "Activation Error",
+			["lic_key_length"] = "Activation key must be exactly 16 characters.",
+			["lic_key_invalid_char"] = "Activation key contains invalid characters.",
+			["lic_key_bad_format"] = "Activation key has invalid binary format.",
+			["lic_key_wrong_hw"] = "This activation key is not for this computer (hardware).",
+			["lic_key_tampered"] = "Activation key is invalid or has been tampered with.",
+			["lic_key_used"] = "This activation key has already been used.",
+			["lic_activated"] = "Activation successful!\n\nNew expiration: {0}",
+			["lic_permanent_label"] = "Permanent",
+			["lic_key_error_fmt"] = "Invalid activation key or format error: {0}",
 		};
 
 		// ─── Chinese (Simplified) 简体中文 ─────────────────────────────────────

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Management;
 using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -61,54 +62,54 @@ namespace TPL
 		// Thay link Google Sheets (định dạng CSV) của bạn vào đây. Xem hướng dẫn đi kèm.
 		public const string RevokeListUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQINX-Qrie3CV-wo3xMZU7gwkMKcbBORTTQryY8af60V3sxG7_Q1QspoQ3o7GmxJmVTH5Q5_vfOWUr8/pub?gid=198057700&single=true&output=csv";
 
+		// HttpClient singleton — thread-safe, tái sử dụng connection pool
+		private static readonly HttpClient _httpClient = new()
+		{
+			Timeout = TimeSpan.FromSeconds(10)
+		};
+
 		public static void CheckRemoteRevokeAsync()
 		{
 			if (string.IsNullOrEmpty(RevokeListUrl) || !RevokeListUrl.StartsWith("http")) return;
 
-			Task.Run(() =>
+			Task.Run(async () =>
 			{
 				try
 				{
-					// Tải danh sách các mã bị khoá từ xa
-					using var client = new WebClient();
-					// Chống cache từ Windows và Google để luôn nhận dữ liệu mới nhất
-					client.Headers.Add("Cache-Control", "no-cache");
+					// Chống cache: thêm timestamp vào URL
 					string url = RevokeListUrl + (RevokeListUrl.Contains("?") ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
-					string data = client.DownloadString(url);
-					string hwId = GetHardwareId().ToUpper();
 
-					// Chuẩn hóa danh sách blacklist tải về (xóa dấu gạch ngang, khoảng trắng, chuyển in hoa)
+					using var request = new HttpRequestMessage(HttpMethod.Get, url);
+					request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
+
+					using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+					response.EnsureSuccessStatusCode();
+					string data = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+					string hwId = GetHardwareId().ToUpper();
 					string cleanData = data.Replace("-", "").Replace(" ", "").ToUpper();
 
-					bool isRevoked = false;
-					if (cleanData.Contains(hwId))
+					// Lấy license info 1 lần duy nhất
+					LicenseInfo info = GetLicenseInfo();
+
+					bool isRevoked = cleanData.Contains(hwId);
+					if (!isRevoked)
 					{
-						isRevoked = true;
-					}
-					else
-					{
-						LicenseInfo info = GetLicenseInfo();
 						foreach (string key in info.AppliedKeys)
 						{
 							if (!string.IsNullOrEmpty(key) && cleanData.Contains(key.ToUpper()))
-							{
-								isRevoked = true;
-								break;
-							}
+							{ isRevoked = true; break; }
 						}
 					}
 
-					if (isRevoked)
+					if (isRevoked && info.IsValid)
 					{
-						LicenseInfo info = GetLicenseInfo();
-						if (info.IsValid)
-						{
-							info.ExpirationDate = DateTime.MinValue; // Lập tức hết hạn
-							SaveLicenseInfo(info);
-						}
+						info.ExpirationDate = DateTime.MinValue;
+						SaveLicenseInfo(info);
 					}
 				}
-				catch { /* Bỏ qua nếu không có mạng */ }
+				catch (TaskCanceledException) { /* Timeout hoặc AutoCAD đóng — bỏ qua */ }
+				catch { /* Không có mạng — bỏ qua */ }
 			});
 		}
 
@@ -215,7 +216,7 @@ namespace TPL
 				string cleanedKey = activationKey.Replace("-", "").Replace(" ", "").ToUpper();
 				if (cleanedKey.Length != 16)
 				{
-					message = "Mã kích hoạt phải có độ dài đúng 16 ký tự.";
+					message = L10n.T("lic_key_length");
 					return false;
 				}
 
@@ -227,13 +228,13 @@ namespace TPL
 				}
 				catch
 				{
-					message = "Mã kích hoạt chứa ký tự không hợp lệ.";
+					message = L10n.T("lic_key_invalid_char");
 					return false;
 				}
 
 				if (payload.Length != 10)
 				{
-					message = "Mã kích hoạt không đúng định dạng nhị phân.";
+					message = L10n.T("lic_key_bad_format");
 					return false;
 				}
 
@@ -257,7 +258,7 @@ namespace TPL
 
 				if (shortHwIdHex != myShortHwIdHex)
 				{
-					message = "Mã kích hoạt này không dành cho máy tính (phần cứng) này.";
+					message = L10n.T("lic_key_wrong_hw");
 					return false;
 				}
 
@@ -269,7 +270,7 @@ namespace TPL
 				{
 					if (providedSigBytes[i] != hashBytes[i])
 					{
-						message = "Mã kích hoạt không hợp lệ hoặc đã bị chỉnh sửa.";
+						message = L10n.T("lic_key_tampered");
 						return false;
 					}
 				}
@@ -279,7 +280,7 @@ namespace TPL
 				// Kiểm tra key đã được dùng chưa (so sánh theo cleanedKey)
 				if (info.AppliedKeys.Contains(cleanedKey))
 				{
-					message = "Mã kích hoạt này đã được sử dụng rồi.";
+					message = L10n.T("lic_key_used");
 					return false;
 				}
 
@@ -312,12 +313,12 @@ namespace TPL
 				info.LastRunDate = DateTime.Now;
 				SaveLicenseInfo(info);
 
-				message = $"Kích hoạt thành công!\n\nHạn sử dụng mới: {(info.ExpirationDate == DateTime.MaxValue ? "Vĩnh viễn" : info.ExpirationDate.ToString("dd/MM/yyyy HH:mm"))}";
+				message = $"{L10n.T("lic_activated").Replace("{0}", info.ExpirationDate == DateTime.MaxValue ? L10n.T("lic_permanent_label") : info.ExpirationDate.ToString("dd/MM/yyyy HH:mm"))}";
 				return true;
 			}
 			catch (Exception ex)
 			{
-				message = $"Mã kích hoạt không hợp lệ hoặc bị lỗi định dạng: {ex.Message}";
+				message = string.Format(L10n.T("lic_key_error_fmt"), ex.Message);
 				return false;
 			}
 		}
