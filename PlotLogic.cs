@@ -35,6 +35,9 @@ namespace TPL
 
     public static class PlotLogic
     {
+        /// <summary>Ngưỡng tối thiểu cho chiều rộng/cao của plot frame (đơn vị drawing).
+        /// Frame nhỏ hơn giá trị này sẽ bị bỏ qua vì gây treo PlotEngine.</summary>
+        private const double MinFrameDimension = 0.001;
         public static List<PlotFrame> SelectFrames(PlotHelper.PlotSettingsData settings)
         {
             Document doc = Application.DocumentManager.MdiActiveDocument;
@@ -94,6 +97,17 @@ namespace TPL
         {
             if (settings.FrameType == PlotHelper.FrameType.Block)
             {
+                // Filter INSERT + tên block cụ thể.
+                // Thêm *U* để bắt dynamic block (entity lưu anonymous name *Uxx).
+                string blockNameFilter = string.Join(",", settings.FrameNames);
+                if (!string.IsNullOrEmpty(blockNameFilter))
+                {
+                    blockNameFilter += ",`*U*"; // backtick escape ký tự * đầu tiên cho AutoCAD wildcard
+                    return new TypedValue[] {
+                        new((int)DxfCode.Start, "INSERT"),
+                        new((int)DxfCode.BlockName, blockNameFilter)
+                    };
+                }
                 return new TypedValue[] { new((int)DxfCode.Start, "INSERT") };
             }
             else
@@ -122,29 +136,37 @@ namespace TPL
             }
             catch { }
 
+            Extents3d extents;
             if (settings.FrameType == PlotHelper.FrameType.Block)
             {
                 BlockReference br = ent as BlockReference;
-                if (br != null)
-                {
-                    string name = GetBlockName(br, tr);
-                    // Match any of the allowed block names (case insensitive)
-                    if (settings.FrameNames.Any(fn => string.Equals(name, fn, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        if (string.IsNullOrEmpty(layoutName)) layoutName = GetLayoutName(ent.OwnerId, tr);
-                        frames.Add(new PlotFrame { Id = id, Extents = CalculateBlockExtents(br, tr), LayoutName = layoutName });
-                    }
-                }
+                if (br == null) return;
+                string name = GetBlockName(br, tr);
+                if (!settings.FrameNames.Any(fn => string.Equals(name, fn, StringComparison.OrdinalIgnoreCase))) return;
+                if (string.IsNullOrEmpty(layoutName)) layoutName = GetLayoutName(ent.OwnerId, tr);
+                try { extents = CalculateBlockExtents(br, tr); }
+                catch { return; } // Block không có extents hợp lệ
             }
             else
             {
                 Polyline pl = ent as Polyline;
-                if (pl != null)
-                {
-                    if (string.IsNullOrEmpty(layoutName)) layoutName = GetLayoutName(ent.OwnerId, tr);
-                    frames.Add(new PlotFrame { Id = id, Extents = pl.GeometricExtents, LayoutName = layoutName });
-                }
+                if (pl == null) return;
+                if (string.IsNullOrEmpty(layoutName)) layoutName = GetLayoutName(ent.OwnerId, tr);
+                try { extents = pl.GeometricExtents; }
+                catch { return; } // Polyline không có extents hợp lệ
             }
+
+            // ═══ VALIDATION: bỏ qua frame không có diện tích (line, arc, polyline thẳng...) ═══
+            double frameWidth = Math.Abs(extents.MaxPoint.X - extents.MinPoint.X);
+            double frameHeight = Math.Abs(extents.MaxPoint.Y - extents.MinPoint.Y);
+            if (frameWidth < MinFrameDimension || frameHeight < MinFrameDimension)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[TPL] Skipped frame (no area): Handle={ent.Handle}, W={frameWidth:F4}, H={frameHeight:F4}");
+                return;
+            }
+
+            frames.Add(new PlotFrame { Id = id, Extents = extents, LayoutName = layoutName });
         }
 
         private static string GetBlockName(BlockReference br, Transaction tr)
@@ -367,6 +389,21 @@ namespace TPL
 
             if (frames.Count == 0) { ed.WriteMessage("\nNo plot frames found."); return; }
 
+            // ═══ PRE-FILTER: loại bỏ frame không có diện tích trước khi plot ═══
+            int originalCount = frames.Count;
+            frames.RemoveAll(f =>
+            {
+                double w = Math.Abs(f.Extents.MaxPoint.X - f.Extents.MinPoint.X);
+                double h = Math.Abs(f.Extents.MaxPoint.Y - f.Extents.MinPoint.Y);
+                return w < MinFrameDimension || h < MinFrameDimension;
+            });
+            int skippedCount = originalCount - frames.Count;
+            if (skippedCount > 0)
+            {
+                ed.WriteMessage($"\n[TPL] WARNING: Skipped {skippedCount} frame(s) with zero area (line/arc/degenerate).");
+            }
+            if (frames.Count == 0) { ed.WriteMessage("\n[TPL] No valid plot frames remaining after filtering."); return; }
+
             bool isFilePrinter = PlotHelper.IsFilePrinter(settings.DeviceName);
 
             string baseName = settings.BaseFileName;
@@ -502,76 +539,105 @@ namespace TPL
             Application.ShowModelessDialog(Application.MainWindow.Handle, progressForm);
 
             var generatedFiles = new List<string>();
+            int errorCount = 0;
             try
             {
                 int fileCounter = 1;
                 for (int i = 0; i < plotJobs.Count; i++)
                 {
                     var (LayoutName, LayoutId, ModelType, Ps, Extents) = plotJobs[i];
-
-                    string filePath = "";
-                    string fileName = "";
-
-                    // Chỉ tạo file path nếu là máy in file
-                    if (isFilePrinter)
+                    try
                     {
-                        do
+                        // ═══ SAFETY CHECK: validate extents trước khi gửi vào PlotEngine ═══
+                        double extW = Math.Abs(Extents.MaxPoint.X - Extents.MinPoint.X);
+                        double extH = Math.Abs(Extents.MaxPoint.Y - Extents.MinPoint.Y);
+                        if (extW < MinFrameDimension || extH < MinFrameDimension)
                         {
-                            fileName = $"{baseName}_{fileCounter:D2}{ext}";
-                            filePath = Path.Combine(outDir, fileName);
-                            fileCounter++;
-                        } while (File.Exists(filePath));
+                            ed.WriteMessage($"\n[TPL] Skipped page {i + 1}: Frame has no area (W={extW:F4}, H={extH:F4}).");
+                            errorCount++;
+                            continue;
+                        }
+
+                        string filePath = "";
+                        string fileName = "";
+
+                        // Chỉ tạo file path nếu là máy in file
+                        if (isFilePrinter)
+                        {
+                            do
+                            {
+                                fileName = $"{baseName}_{fileCounter:D2}{ext}";
+                                filePath = Path.Combine(outDir, fileName);
+                                fileCounter++;
+                            } while (File.Exists(filePath));
+                        }
+                        else
+                        {
+                            fileName = $"Page {i + 1}/{plotJobs.Count}";
+                        }
+
+                        lblProg.Text = string.Format(L10n.T("prog_progress"), i + 1, plotJobs.Count);
+                        pb.Value = i;
+                        lblSub.Text = isFilePrinter
+                            ? string.Format(L10n.T("prog_file"), fileName)
+                            : $"Printing: {fileName} → {settings.DeviceName}";
+                        progressForm.Update();
+
+                        // Layout switch
+                        LayoutManager.Current.CurrentLayout = LayoutName;
+                        ed.UpdateScreen();
+
+                        if (PlotFactory.ProcessPlotState != ProcessPlotState.NotPlotting)
+                        {
+                            ed.WriteMessage($"\n[TPL] Skipped page {i + 1}: PlotEngine busy.");
+                            errorCount++;
+                            continue;
+                        }
+
+                        {
+						    // ═══ Unified Plot Engine ═══
+						    using var pe = PlotFactory.CreatePublishEngine();
+						    using var ppd = new PlotProgressDialog(false, 1, true);
+						    ppd.set_PlotMsgString(PlotMessageIndex.DialogTitle, "TPL");
+						    ppd.set_PlotMsgString(PlotMessageIndex.CancelJobButtonMessage, "Cancel");
+						    ppd.set_PlotMsgString(PlotMessageIndex.CancelSheetButtonMessage, "Cancel");
+						    ppd.LowerPlotProgressRange = 0; ppd.UpperPlotProgressRange = 100; ppd.PlotProgressPos = 0;
+						    ppd.OnBeginPlot(); ppd.IsVisible = false;
+						    pe.BeginPlot(ppd, null);
+
+						    var pi = new PlotInfo { Layout = LayoutId, OverrideSettings = Ps };
+						    var piv = new PlotInfoValidator { MediaMatchingPolicy = MatchingPolicy.MatchEnabled };
+						    piv.Validate(pi);
+
+						    pe.BeginDocument(pi, doc.Name, null, 1, isFilePrinter, isFilePrinter ? filePath : "");
+						    ppd.OnBeginSheet(); ppd.LowerSheetProgressRange = 0; ppd.UpperSheetProgressRange = 100; ppd.SheetProgressPos = 0;
+						    pe.BeginPage(new PlotPageInfo(), pi, true, null);
+						    pe.BeginGenerateGraphics(null);
+						    pe.EndGenerateGraphics(null);
+						    pe.EndPage(null);
+						    ppd.SheetProgressPos = 100; ppd.OnEndSheet();
+						    pe.EndDocument(null);
+						    ppd.PlotProgressPos = 100; ppd.OnEndPlot();
+						    pe.EndPlot(null);
+						    if (isFilePrinter) generatedFiles.Add(filePath);
+						}
                     }
-                    else
+                    catch (System.Exception plotEx)
                     {
-                        fileName = $"Page {i + 1}/{plotJobs.Count}";
+                        // ═══ CRASH-PROOF: bắt lỗi từng trang, không crash toàn batch ═══
+                        errorCount++;
+                        ed.WriteMessage($"\n[TPL] ERROR page {i + 1}: {plotEx.GetType().Name}: {plotEx.Message}");
                     }
-
-                    lblProg.Text = string.Format(L10n.T("prog_progress"), i + 1, plotJobs.Count);
-                    pb.Value = i;
-                    lblSub.Text = isFilePrinter
-                        ? string.Format(L10n.T("prog_file"), fileName)
-                        : $"Printing: {fileName} → {settings.DeviceName}";
-                    progressForm.Update();
-
-                    // Layout switch
-                    LayoutManager.Current.CurrentLayout = LayoutName;
-                    ed.UpdateScreen();
-
-                    if (PlotFactory.ProcessPlotState != ProcessPlotState.NotPlotting) continue;
-
+                    finally
                     {
-						// ═══ Unified Plot Engine ═══
-						// CreatePublishEngine dùng cho cả máy in file lẫn máy in vật lý.
-						// Khác biệt duy nhất: filePath="" → gửi qua spooler, filePath=path → xuất file.
-						using var pe = PlotFactory.CreatePublishEngine();
-						using var ppd = new PlotProgressDialog(false, 1, true);
-						ppd.set_PlotMsgString(PlotMessageIndex.DialogTitle, "TPL");
-						ppd.set_PlotMsgString(PlotMessageIndex.CancelJobButtonMessage, "Cancel");
-						ppd.set_PlotMsgString(PlotMessageIndex.CancelSheetButtonMessage, "Cancel");
-						ppd.LowerPlotProgressRange = 0; ppd.UpperPlotProgressRange = 100; ppd.PlotProgressPos = 0;
-						ppd.OnBeginPlot(); ppd.IsVisible = false;
-						pe.BeginPlot(ppd, null);
+                        Ps.Dispose();
+                    }
+                }
 
-						var pi = new PlotInfo { Layout = LayoutId, OverrideSettings = Ps };
-						var piv = new PlotInfoValidator { MediaMatchingPolicy = MatchingPolicy.MatchEnabled };
-						piv.Validate(pi);
-
-						// File printer → plotToFile = true, filePath = đường dẫn file output
-						// Physical printer → plotToFile = false, filePath = "" (gửi trực tiếp qua Windows Print Spooler)
-						pe.BeginDocument(pi, doc.Name, null, 1, isFilePrinter, isFilePrinter ? filePath : "");
-						ppd.OnBeginSheet(); ppd.LowerSheetProgressRange = 0; ppd.UpperSheetProgressRange = 100; ppd.SheetProgressPos = 0;
-						pe.BeginPage(new PlotPageInfo(), pi, true, null);
-						pe.BeginGenerateGraphics(null);
-						pe.EndGenerateGraphics(null);
-						pe.EndPage(null);
-						ppd.SheetProgressPos = 100; ppd.OnEndSheet();
-						pe.EndDocument(null);
-						ppd.PlotProgressPos = 100; ppd.OnEndPlot();
-						pe.EndPlot(null);
-						if (isFilePrinter) generatedFiles.Add(filePath);
-					}
-                    Ps.Dispose();
+                // Thông báo tổng kết lỗi
+                if (errorCount > 0)
+                {
+                    ed.WriteMessage($"\n[TPL] Completed with {errorCount} error(s) out of {plotJobs.Count} page(s).");
                 }
 
                 pb.Value = plotJobs.Count;
@@ -713,6 +779,7 @@ namespace TPL
             }
             finally
             {
+                try { progressForm.Close(); progressForm.Dispose(); } catch { }
                 Application.SetSystemVariable("BACKGROUNDPLOT", bgPlot);
             }
         }

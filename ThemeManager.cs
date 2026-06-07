@@ -111,7 +111,20 @@ namespace TPL
 				var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 				g.DrawString("P", font, brush, new RectangleF(0, 0, 32, 32), sf);
 			}
-			return System.Drawing.Icon.FromHandle(bmp.GetHicon());
+			IntPtr hIcon = bmp.GetHicon();
+			try
+			{
+				// Clone → icon mới sở hữu copy riêng, GDI handle gốc được giải phóng
+				return (System.Drawing.Icon)System.Drawing.Icon.FromHandle(hIcon).Clone();
+			}
+			finally
+			{
+				DestroyIcon(hIcon);
+			}
 		}
+
+		[System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+		[return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+		private static extern bool DestroyIcon(IntPtr hIcon);
 	}
 }

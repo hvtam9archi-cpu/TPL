@@ -348,6 +348,9 @@ namespace TPL
 				Application.DocumentManager.DocumentActivated -= DocumentManager_DocumentActivated_Local;
 				Application.DocumentManager.DocumentActivated += DocumentManager_DocumentActivated_Local;
 
+				Application.DocumentManager.DocumentToBeDestroyed -= DocumentManager_DocumentToBeDestroyed_Local;
+				Application.DocumentManager.DocumentToBeDestroyed += DocumentManager_DocumentToBeDestroyed_Local;
+
 				var doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc != null)
 				{
@@ -362,6 +365,7 @@ namespace TPL
 			try
 			{
 				Application.DocumentManager.DocumentActivated -= DocumentManager_DocumentActivated_Local;
+				Application.DocumentManager.DocumentToBeDestroyed -= DocumentManager_DocumentToBeDestroyed_Local;
 				foreach (Document doc in Application.DocumentManager)
 				{
 					DetachDbEvents(doc.Database);
@@ -377,6 +381,18 @@ namespace TPL
 				if (e.Document != null)
 				{
 					AttachDbEvents(e.Document.Database);
+				}
+			}
+			catch { }
+		}
+
+		private void DocumentManager_DocumentToBeDestroyed_Local(object sender, DocumentCollectionEventArgs e)
+		{
+			try
+			{
+				if (e.Document != null && !e.Document.IsDisposed)
+				{
+					DetachDbEvents(e.Document.Database);
 				}
 			}
 			catch { }

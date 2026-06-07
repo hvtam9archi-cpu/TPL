@@ -159,6 +159,7 @@ namespace TPL
 							string n = br.IsDynamicBlock ? ((BlockTableRecord)tr.GetObject(br.DynamicBlockTableRecord, OpenMode.ForRead)).Name : br.Name;
 							names.Add(n);
 						}
+						tr.Commit();
 					}
 					txtBlocks.Text = string.Join(", ", names);
 					rbBlockMode.IsChecked = true;
@@ -236,6 +237,7 @@ namespace TPL
 				var psr = ed.GetSelection(pso, filter);
 				if (psr.Status == PromptStatus.OK)
 				{
+					int totalSelected = psr.Value.Count;
 					tempManualSelectionIds.Clear();
 					using var tr = doc.Database.TransactionManager.StartTransaction();
 					foreach (ObjectId id in psr.Value.GetObjectIds())
@@ -249,6 +251,13 @@ namespace TPL
 						}
 						else tempManualSelectionIds.Add(id);
 					}
+					tr.Commit();
+
+					// Thông báo số lượng thực tế khớp tên block
+					if (tempManualSelectionIds.Count < totalSelected)
+						ed.WriteMessage($"\n[TPL] Matched {tempManualSelectionIds.Count} valid frame(s) from {totalSelected} selected entities.");
+					else
+						ed.WriteMessage($"\n[TPL] Selected {tempManualSelectionIds.Count} frame(s).");
 				}
 			}
 			catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[TPL] SelectManual error: {ex.Message}"); }
@@ -279,6 +288,8 @@ namespace TPL
 				var psr = ed.GetSelection(pso, filter);
 				if (psr.Status == PromptStatus.OK)
 				{
+					int totalSelected = psr.Value.Count;
+					int addedCount = 0;
 					using var tr = doc.Database.TransactionManager.StartTransaction();
 					foreach (ObjectId id in psr.Value.GetObjectIds())
 					{
@@ -289,10 +300,13 @@ namespace TPL
 							var br = (BlockReference)tr.GetObject(id, OpenMode.ForRead);
 							string name = br.IsDynamicBlock ? ((BlockTableRecord)tr.GetObject(br.DynamicBlockTableRecord, OpenMode.ForRead)).Name : br.Name;
 							if (ds.FrameNames.Any(fn => string.Equals(name, fn, StringComparison.OrdinalIgnoreCase)))
-								tempManualSelectionIds.Add(id);
+							{ tempManualSelectionIds.Add(id); addedCount++; }
 						}
-						else tempManualSelectionIds.Add(id);
+						else { tempManualSelectionIds.Add(id); addedCount++; }
 					}
+					tr.Commit();
+
+					ed.WriteMessage($"\n[TPL] Added {addedCount} frame(s). Total: {tempManualSelectionIds.Count}.");
 				}
 			}
 			catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[TPL] AddManual error: {ex.Message}"); }

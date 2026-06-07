@@ -194,7 +194,15 @@ namespace TPL
 			if (!string.IsNullOrEmpty(cmd))
 			{
 				Document doc = Application.DocumentManager.MdiActiveDocument;
-				doc?.SendStringToExecute(cmd, true, false, true);
+				if (doc == null) return;
+
+				// Tách: lệnh cancel (\x1B\x1B) đi trước, tên command đi sau (buffer riêng)
+				// Loại bỏ prefix \x03 nếu có, chỉ lấy tên lệnh thực
+				string cleanCmd = cmd.Replace("\x03", "").Trim();
+				if (string.IsNullOrEmpty(cleanCmd)) return;
+
+				doc.SendStringToExecute("\x1B\x1B", true, false, false);
+				doc.SendStringToExecute(cleanCmd + "\n", true, false, false);
 			}
 		}
 	}
