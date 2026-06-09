@@ -13,7 +13,6 @@
   <ItemGroup>
     <ProjectReference Include="..\TPL.Core\TPL.Core.csproj" />
     <ProjectReference Include="..\TPL.Domain\TPL.Domain.csproj" />
-    <ProjectReference Include="..\TPL.Infrastructure\TPL.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

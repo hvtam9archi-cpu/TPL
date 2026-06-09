@@ -193,7 +193,17 @@ namespace TPL.Presentation.Views
 		private void BtnSelectManual_Click(object sender, RoutedEventArgs e) => OnSelectManualRequested?.Invoke(this);
 		private void BtnAddManual_Click(object sender, RoutedEventArgs e) => OnAddManualRequested?.Invoke(this);
 		private void BtnRemoveManual_Click(object sender, RoutedEventArgs e) => OnRemoveManualRequested?.Invoke(this);
-		private void BtnBrowsePath_Click(object sender, RoutedEventArgs e) => OnBrowsePathRequested?.Invoke(this);
+		private void BtnBrowsePath_Click(object sender, RoutedEventArgs e)
+		{
+			using (var fbd = new System.Windows.Forms.FolderBrowserDialog())
+			{
+				if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+				{
+					txtPath.Text = fbd.SelectedPath;
+					_vm.OutputPath = fbd.SelectedPath;
+				}
+			}
+		}
 		private void BtnEditStyle_Click(object sender, RoutedEventArgs e) => OnEditStyleRequested?.Invoke(this);
 		private void BtnDeleteMarks_Click(object sender, RoutedEventArgs e)
 		{
