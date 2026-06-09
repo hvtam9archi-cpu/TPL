@@ -4,8 +4,8 @@
     <LangVersion>10.0</LangVersion>
     <AssemblyName>TPL.Core</AssemblyName>
     <RootNamespace>TPL.Core</RootNamespace>
-    <UseWindowsForms>false</UseWindowsForms>
-    <UseWPF>false</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
