@@ -1,9 +1,6 @@
-using System;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
-using TPL.Core.Logging;
 using TPL.Domain.Interfaces;
-using TPL.Presentation.ViewModels;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace TPL
@@ -11,6 +8,7 @@ namespace TPL
 	/// <summary>
 	/// Entry point commands — thin wrappers chỉ chứa [CommandMethod].
 	/// Tất cả logic delegate qua DI → ViewModel.
+	/// Sử dụng CommandGuard cho crash-proof.
 	/// </summary>
 	public class Commands
 	{
@@ -19,7 +17,7 @@ namespace TPL
 		[CommandMethod("TPL")]
 		public void AutoPlotCommand()
 		{
-			try
+			CommandGuard.Execute("TPL", () =>
 			{
 				if (!ServiceContainer.IsInitialized) ServiceContainer.Initialize();
 
@@ -64,23 +62,13 @@ namespace TPL
 				{
 					_mainWindow.Activate();
 				}
-			}
-			catch (System.Exception ex)
-			{
-				TplLogger.Error(ex, "TPL Command");
-				try
-				{
-					Application.DocumentManager.MdiActiveDocument?.Editor
-						.WriteMessage($"\n[TPL] Error: {ex.Message}\n");
-				}
-				catch { }
-			}
+			});
 		}
 
 		[CommandMethod("TPL_LICENSE")]
 		public void LicenseCommand()
 		{
-			try
+			CommandGuard.Execute("TPL_LICENSE", () =>
 			{
 				if (!ServiceContainer.IsInitialized) ServiceContainer.Initialize();
 
@@ -88,11 +76,7 @@ namespace TPL
 				// var vm = ServiceContainer.Resolve<LicenseWindowViewModel>();
 				// var licenseWin = new LicenseWindow(vm);
 				// Application.ShowModalWindow(licenseWin);
-			}
-			catch (System.Exception ex)
-			{
-				TplLogger.Error(ex, "TPL_LICENSE Command");
-			}
+			});
 		}
 	}
 }
