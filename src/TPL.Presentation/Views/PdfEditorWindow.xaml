@@ -342,7 +342,7 @@
                             <TextBlock Text="P" Foreground="White" FontWeight="Bold" FontSize="13" 
                                        HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI"/>
                         </Border>
-                        <TextBlock x:Name="txtTitle" Text="PDF Editor â€” TPL" 
+                        <TextBlock x:Name="txtTitle" Text="PDF Editor - TPL" 
                                    Foreground="{StaticResource FgBrush}" FontSize="13" FontWeight="SemiBold" 
                                    VerticalAlignment="Center" FontFamily="Segoe UI"/>
                     </StackPanel>
@@ -513,7 +513,7 @@
                 <DockPanel>
                     <!-- Right side: Save / Cancel -->
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                        <Button x:Name="btnSave" Content="ðŸ’¾  Save File" 
+                        <Button x:Name="btnSave" Content="Save File" 
                                 Style="{StaticResource AccentButton}" 
                                 Width="140" Height="36" FontSize="13"
                                 Click="BtnSave_Click" BorderBrush="#00000000" Margin="0,4,0,0"/>

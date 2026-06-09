@@ -42,120 +42,240 @@ namespace TPL.Presentation.ViewModels
 		// ─── Printer / Paper / Style ─────────────────────────────────────
 
 		[ObservableProperty]
-		private ObservableCollection<string> printers = new();
+		private readonly ObservableCollection<string> printers = new();
 
 		[ObservableProperty]
-		private string selectedPrinter;
+		private readonly string selectedPrinter;
 
 		[ObservableProperty]
-		private ObservableCollection<string> paperSizes = new();
+		private readonly ObservableCollection<string> paperSizes = new();
 
 		[ObservableProperty]
-		private string selectedPaperSize;
+		private readonly string selectedPaperSize;
 
 		[ObservableProperty]
-		private ObservableCollection<string> plotStyles = new();
+		private readonly ObservableCollection<string> plotStyles = new();
 
 		[ObservableProperty]
-		private string selectedPlotStyle;
+
+<<<<<<< TODO: Unmerged change from project 'TPL', Before:
+		private readonly string selectedPlotStyle;
 
 		// ─── Frame Selection ─────────────────────────────────────────────
 
 		[ObservableProperty]
-		private bool isBlockMode = true;
+=======
+		private readonly string selectedPlotStyle;
+
+		// ─── Frame Selection ─────────────────────────────────────────────
 
 		[ObservableProperty]
-		private string blockNames = "";
+>>>>>>> After
+		private readonly string selectedPlotStyle;
+
+		// ─── Frame Selection ─────────────────────────────────────────────
 
 		[ObservableProperty]
-		private string layerNames = "";
+		private readonly bool isBlockMode = true;
 
 		[ObservableProperty]
-		private List<string> frameNameList = new();
+		private readonly string blockNames = "";
+
+		[ObservableProperty]
+		private readonly string layerNames = "";
+
+		[ObservableProperty]
+
+<<<<<<< TODO: Unmerged change from project 'TPL', Before:
+		private readonly List<string> frameNameList = new();
 
 		// ─── Output ──────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private string baseFileName = "";
+=======
+		private readonly List<string> frameNameList = new();
+
+		// ─── Output ──────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private string outputPath = "";
+>>>>>>> After
+		private readonly List<string> frameNameList = new();
+
+		// ─── Output ──────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private bool isFilePrinter = true;
+		private readonly string baseFileName = "";
+
+		[ObservableProperty]
+		private readonly string outputPath = "";
+
+		[ObservableProperty]
+
+<<<<<<< TODO: Unmerged change from project 'TPL', Before:
+		private readonly bool isFilePrinter = true;
 
 		// ─── Options ─────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private bool mergePdfs = true;
+=======
+		private readonly bool isFilePrinter = true;
+
+		// ─── Options ─────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private bool openWhenDone = true;
+>>>>>>> After
+		private readonly bool isFilePrinter = true;
+
+		// ─── Options ─────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private bool markPlotRegions;
+		private readonly bool mergePdfs = true;
 
 		[ObservableProperty]
-		private bool pdfEditorEnabled;
+		private readonly bool openWhenDone = true;
 
 		[ObservableProperty]
-		private bool convertToImage;
+		private readonly bool markPlotRegions;
 
 		[ObservableProperty]
-		private string imageFormat = "JPG";
+		private readonly bool pdfEditorEnabled;
 
 		[ObservableProperty]
-		private int imageDpi = 600;
+		private readonly bool convertToImage;
+
+		[ObservableProperty]
+		private readonly string imageFormat = "JPG";
+
+		[ObservableProperty]
+
+<<<<<<< TODO: Unmerged change from project 'TPL', Before:
+		private readonly int imageDpi = 600;
 
 		// ─── Scope ───────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private bool isAutoSelect = true;
+=======
+		private readonly int imageDpi = 600;
+
+		// ─── Scope ───────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private bool isManualSelect;
+>>>>>>> After
+		private readonly int imageDpi = 600;
+
+		// ─── Scope ───────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private int manualSelectionCount;
+		private readonly bool isAutoSelect = true;
 
 		[ObservableProperty]
-		private List<long> manualSelectionHandles = new();
+		private readonly bool isManualSelect;
+
+		[ObservableProperty]
+		private readonly int manualSelectionCount;
+
+		[ObservableProperty]
+
+<<<<<<< TODO: Unmerged change from project 'TPL', Before:
+		private readonly List<long> manualSelectionHandles = new();
 
 		// ─── Sort ────────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private ObservableCollection<string> sortOrderItems = new();
+=======
+		private readonly List<long> manualSelectionHandles = new();
+
+		// ─── Sort ────────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private int selectedOrd1Index;
+>>>>>>> After
+		private readonly List<long> manualSelectionHandles = new();
+
+		// ─── Sort ────────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private int selectedOrd2Index;
+		private readonly ObservableCollection<string> sortOrderItems = new();
 
 		[ObservableProperty]
-		private ObservableCollection<string> basePointItems = new();
+		private readonly int selectedOrd1Index;
 
 		[ObservableProperty]
-		private int selectedBasePointIndex;
+		private readonly int selectedOrd2Index;
 
 		[ObservableProperty]
-		private double fuzz = 100;
+		private readonly ObservableCollection<string> basePointItems = new();
+
+		[ObservableProperty]
+		private readonly int selectedBasePointIndex;
+
+		[ObservableProperty]
+
+<<<<<<< TODO: Unmerged change from project 'TPL', Before:
+		private readonly double fuzz = 100;
 
 		// ─── Orientation ─────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private PlotOrientation orientation = PlotOrientation.Auto;
+		private readonly PlotOrientation orientation = PlotOrientation.Auto;
 
 		// ─── Status ──────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private string statusText = "Ready";
+=======
+		private readonly double fuzz = 100;
+
+		// ─── Orientation ─────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private int frameCount;
+		private readonly PlotOrientation orientation = PlotOrientation.Auto;
+
+		// ─── Status ──────────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private bool isPlotting;
+>>>>>>> After
+		private readonly double fuzz = 100;
+
+		// ─── Orientation ─────────────────────────────────────────────────
+
+		[ObservableProperty]
+		private readonly PlotOrientation orientation = PlotOrientation.Auto;
+
+		// ─── Status ──────────────────────────────────────────────────────
+
+		[ObservableProperty]
+		private readonly string statusText = "Ready";
+
+		[ObservableProperty]
+		private readonly int frameCount;
+
+		[ObservableProperty]
+
+<<<<<<< TODO: Unmerged change from project 'TPL', Before:
+		private readonly bool isPlotting;
+
+		// ─── Window Title ────────────────────────────────────────────────
+
+		public string WindowTitle => _l10n?.Translate("app_title") ?? "Batch Plot PDF — TPL";
+
+		// ═══════════════════════════════════════════════════════════════════
+		// METHODS
+		// ═══════════════════════════════════════════════════════════════════
+
+		/// <summary>Khởi tạo dữ liệu — gọi từ Window.Loaded (Main thread).</summary>
+=======
+		private readonly bool isPlotting;
+
+		// ─── Window Title ────────────────────────────────────────────────
+
+		public string WindowTitle => _l10n?.Translate("app_title") ?? "Batch Plot PDF — TPL";
+
+		// ═══════════════════════════════════════════════════════════════════
+		// METHODS
+		// ═══════════════════════════════════════════════════════════════════
+
+		/// <summary>Khởi tạo dữ liệu — gọi từ Window.Loaded (Main thread).</summary>
+>>>>>>> After
+		private readonly bool isPlotting;
 
 		// ─── Window Title ────────────────────────────────────────────────
 

@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
-using TPL.Domain.Interfaces;
 using TPL.Domain.Models;
 using TPL.Presentation.ViewModels;
 

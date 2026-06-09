@@ -7,7 +7,6 @@ using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.PlottingServices;
-using TPL.Core.Logging;
 using TPL.Domain.Enums;
 using TPL.Domain.Interfaces;
 using TPL.Domain.Models;

@@ -1,6 +1,5 @@
 using System;
 using TPL.Core.Logging;
-using Autodesk.AutoCAD.ApplicationServices;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace TPL

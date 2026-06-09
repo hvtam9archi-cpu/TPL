@@ -9,22 +9,32 @@ namespace TPL.Presentation.ViewModels
 	public partial class ProgressWindowViewModel : ObservableObject
 	{
 		[ObservableProperty]
-		private string title = "Exporting PDF...";
+		private readonly string title = "Exporting PDF...";
 
 		[ObservableProperty]
-		private string mainLabel = "Progress: 0 / 0";
+		private readonly string mainLabel = "Progress: 0 / 0";
 
 		[ObservableProperty]
-		private string subLabel = "";
+		private readonly string subLabel = "";
 
 		[ObservableProperty]
-		private int currentPage;
+		private readonly int currentPage;
 
 		[ObservableProperty]
-		private int totalPages = 1;
+		private readonly int totalPages = 1;
 
 		[ObservableProperty]
-		private double progressPercent;
+
+<<<<<<< TODO: Unmerged change from project 'TPL', Before:
+		private readonly double progressPercent;
+
+		/// <summary>Cập nhật tiến trình.</summary>
+=======
+		private readonly double progressPercent;
+
+		/// <summary>Cập nhật tiến trình.</summary>
+>>>>>>> After
+		private readonly double progressPercent;
 
 		/// <summary>Cập nhật tiến trình.</summary>
 		public void Update(int current, int total, string main, string sub)

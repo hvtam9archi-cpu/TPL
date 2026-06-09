@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using TPL.Domain.Models;
 
 namespace TPL.Domain.Interfaces
 {

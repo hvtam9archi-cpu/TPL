@@ -25,25 +25,39 @@ namespace TPL.Presentation.ViewModels
 		// ─── Properties ──────────────────────────────────────────────────
 
 		[ObservableProperty]
-		private string hardwareId = "";
+		private readonly string hardwareId = "";
 
 		[ObservableProperty]
-		private string statusMessage = "";
+		private readonly string statusMessage = "";
 
 		[ObservableProperty]
-		private string statusColor = "#E8EAED";
+		private readonly string statusColor = "#E8EAED";
 
 		[ObservableProperty]
-		private string activationKey = "";
+		private readonly string activationKey = "";
 
 		[ObservableProperty]
-		private string expirationDisplay = "";
+		private readonly string expirationDisplay = "";
 
 		[ObservableProperty]
-		private bool isLicenseValid;
+		private readonly bool isLicenseValid;
 
 		[ObservableProperty]
-		private string activationMessage = "";
+
+<<<<<<< TODO: Unmerged change from project 'TPL', Before:
+		private readonly string activationMessage = "";
+
+		// ═══════════════════════════════════════════════════════════════════
+
+		/// <summary>Khởi tạo license info — gọi từ Window.Loaded.</summary>
+=======
+		private readonly string activationMessage = "";
+
+		// ═══════════════════════════════════════════════════════════════════
+
+		/// <summary>Khởi tạo license info — gọi từ Window.Loaded.</summary>
+>>>>>>> After
+		private readonly string activationMessage = "";
 
 		// ═══════════════════════════════════════════════════════════════════
 
