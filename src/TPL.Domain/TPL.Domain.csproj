@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>10.0</LangVersion>
+    <AssemblyName>TPL.Domain</AssemblyName>
+    <RootNamespace>TPL.Domain</RootNamespace>
+    <UseWindowsForms>false</UseWindowsForms>
+    <UseWPF>false</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TPL.Core\TPL.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- PDF processing — pure logic, no AutoCAD -->
+    <PackageReference Include="PDFsharp" Version="6.1.1" />
+    <PackageReference Include="PdfiumViewer" Version="2.13.0" />
+    <PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" />
+  </ItemGroup>
+</Project>

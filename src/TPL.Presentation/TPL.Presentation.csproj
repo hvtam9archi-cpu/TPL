@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>10.0</LangVersion>
+    <AssemblyName>TPL.Presentation</AssemblyName>
+    <RootNamespace>TPL.Presentation</RootNamespace>
+    <!-- WPF for Views, WinForms for PdfViewer hosted via WindowsFormsHost -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TPL.Core\TPL.Core.csproj" />
+    <ProjectReference Include="..\TPL.Domain\TPL.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MVVM Toolkit — Source generators for ObservableProperty, RelayCommand -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <!-- PdfViewer WinForms control for PDF preview -->
+    <PackageReference Include="PdfiumViewer" Version="2.13.0" />
+    <PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" />
+    <PackageReference Include="PDFsharp" Version="6.1.1" />
+  </ItemGroup>
+</Project>

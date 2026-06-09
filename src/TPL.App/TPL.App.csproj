@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>10.0</LangVersion>
+    <AssemblyName>TPL</AssemblyName>
+    <RootNamespace>TPL</RootNamespace>
+    <UseWindowsForms>false</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+    <Platforms>AnyCPU;x64</Platforms>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <!-- Project References — Composition Root references ALL layers -->
+  <ItemGroup>
+    <ProjectReference Include="..\TPL.Core\TPL.Core.csproj" />
+    <ProjectReference Include="..\TPL.Domain\TPL.Domain.csproj" />
+    <ProjectReference Include="..\TPL.Infrastructure\TPL.Infrastructure.csproj" />
+    <ProjectReference Include="..\TPL.Presentation\TPL.Presentation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AutoCAD .NET API — for [CommandMethod], IExtensionApplication, Ribbon -->
+    <PackageReference Include="AutoCAD.NET" Version="23.1.0" ExcludeAssets="runtime" />
+    <PackageReference Include="AutoCAD.NET.Core" Version="23.1.0" ExcludeAssets="runtime" />
+    <PackageReference Include="AutoCAD.NET.Model" Version="23.1.0" ExcludeAssets="runtime" />
+    <!-- DI Container -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+  </ItemGroup>
+
+  <!-- Embedded Resources: Ribbon Icons -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resource\IconRibbon_32px.png" />
+    <EmbeddedResource Include="Resource\IconRibbon_License_32px.png" />
+    <Resource Include="Resource\StyleSettings_32px.ico" />
+    <Resource Include="Resource\IconRotate_32px.png" />
+    <Resource Include="Resource\IconRotate_32px.ico" />
+  </ItemGroup>
+
+  <!-- Post-build: Tự động deploy vào ApplicationPlugins -->
+  <!-- ContinueOnError="WarnAndContinue": Khi AutoCAD đang chạy, DLL bị lock → chỉ cảnh báo, không crash build -->
+  <Target Name="DeployBundle" AfterTargets="Build">
+    <!-- Tạo thư mục bundle nếu chưa có -->
+    <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents" />
+    <!-- Copy tất cả các file DLL (bao gồm cả thư viện) vào Contents -->
+    <Copy SourceFiles="@(ReferenceCopyLocalPaths)" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents" SkipUnchangedFiles="false" ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents" SkipUnchangedFiles="false" ContinueOnError="WarnAndContinue" />
+    <!-- Copy PackageContents.xml vào bundle root -->
+    <Copy SourceFiles="$(ProjectDir)TPL.bundle\PackageContents.xml" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle" SkipUnchangedFiles="false" ContinueOnError="WarnAndContinue" />
+    <!-- Copy pdfium.dll (Native) -->
+    <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\x64" />
+    <Copy SourceFiles="$(TargetDir)x64\pdfium.dll" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\x64" SkipUnchangedFiles="false" Condition="Exists('$(TargetDir)x64\pdfium.dll')" ContinueOnError="WarnAndContinue" />
+  </Target>
+</Project>
