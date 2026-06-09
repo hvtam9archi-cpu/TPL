@@ -1,0 +1,272 @@
+<Window x:Class="TPL.Presentation.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="TPL" Width="565" Height="505"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" ShowInTaskbar="True"
+        ResizeMode="NoResize">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/TPL.Presentation;component/Resources/DarkTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border CornerRadius="10" Background="{StaticResource BgBrush}"
+            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="40"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- TITLE BAR -->
+            <Border Grid.Row="0" Background="#12141A" CornerRadius="10,10,0,0"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" Height="40">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <Border Width="20" Height="20" CornerRadius="4" Background="{StaticResource AccentBrush}" Margin="0,0,8,0">
+                            <TextBlock Text="P" Foreground="White" FontWeight="Bold" FontSize="12"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI"/>
+                        </Border>
+                        <TextBlock x:Name="txtTitle" Text="Batch Plot PDF — TPL"
+                                   Foreground="{StaticResource FgBrush}" FontSize="12" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" FontFamily="Segoe UI"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,4,0">
+                        <Button Content="✕" Width="32" Height="26" Style="{StaticResource DarkButton}" Padding="0"
+                                Click="BtnClose_Click" Foreground="#FFF34C4C" Margin="0,0,10,0" Background="#FF6D4242"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- CONTENT -->
+            <Grid Grid.Row="1" Margin="14,8,14,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="310"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- LEFT COLUMN -->
+                <StackPanel Grid.Column="0">
+                    <!-- Section 1: Printer -->
+                    <TextBlock Text="1. PRINTER - PAPER SIZE - STYLE" Style="{StaticResource SectionHeader}" FontSize="12"/>
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="75"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="34"/>
+                            <RowDefinition Height="34"/>
+                            <RowDefinition Height="34"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Printer:" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="cbPrinters" Grid.Row="0" Grid.Column="1" Style="{StaticResource DarkComboBox}"
+                                  SelectionChanged="CbPrinters_SelectionChanged"/>
+                        <TextBlock Grid.Row="1" Text="Paper Size:" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="cbPapers" Grid.Row="1" Grid.Column="1" Style="{StaticResource DarkComboBox}"/>
+                        <TextBlock Grid.Row="2" Text="Plot Style:" Style="{StaticResource FieldLabel}"/>
+                        <DockPanel Grid.Row="2" Grid.Column="1">
+                            <Button x:Name="btnEditStyle" DockPanel.Dock="Right" Width="28" Height="28"
+                                    Style="{StaticResource DarkButton}" Padding="4" Margin="4,0,0,0"
+                                    Click="BtnEditStyle_Click" ToolTip="Edit Plot Style">
+                                <Image Width="16" Height="16" Source="pack://application:,,,/TPL;component/Resource/StyleSettings_32px.ico" RenderOptions.BitmapScalingMode="HighQuality"/>
+                            </Button>
+                            <ComboBox x:Name="cbStyles" Style="{StaticResource DarkComboBox}"/>
+                        </DockPanel>
+                    </Grid>
+
+                    <!-- Section 2: Frame -->
+                    <TextBlock Text="2. PLOT FRAMES" Style="{StaticResource SectionHeader}" Margin="0,6,0,6" FontSize="12"/>
+                    <Grid Margin="0,0,0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="60"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="32"/>
+                            <RowDefinition Height="32"/>
+                        </Grid.RowDefinitions>
+                        <RadioButton x:Name="rbBlockMode" Grid.Row="0" Content="Block:" IsChecked="True"
+                                     Style="{StaticResource DarkRadio}" FontWeight="Bold"
+                                     Checked="ModeChanged" Unchecked="ModeChanged"/>
+                        <TextBox x:Name="txtBlocks" Grid.Row="0" Grid.Column="1" Style="{StaticResource DarkTextBox}"
+                                 IsReadOnly="True" Height="26" Margin="16,3,0,3"/>
+                        <Button x:Name="btnSelectBlock" Grid.Row="0" Grid.Column="2" Content="Select" Height="26"
+                                Style="{StaticResource DarkButton}" Margin="4,0,0,0" Click="BtnSelectBlock_Click"/>
+
+                        <RadioButton x:Name="rbLayerMode" Grid.Row="1" Content="Layer:"
+                                     Style="{StaticResource DarkRadio}" FontWeight="Bold"
+                                     Checked="ModeChanged" Unchecked="ModeChanged"/>
+                        <TextBox x:Name="txtLayers" Grid.Row="1" Grid.Column="1" Style="{StaticResource DarkTextBox}"
+                                 IsReadOnly="True" Height="26" Margin="16,3,0,3"/>
+                        <Button x:Name="btnSelectLayer" Grid.Row="1" Grid.Column="2" Content="Select" Height="26"
+                                Style="{StaticResource DarkButton}" Margin="4,0,0,0" Click="BtnSelectLayer_Click"/>
+                    </Grid>
+
+                    <!-- Section 3: Output -->
+                    <TextBlock Text="3. OUTPUT" Style="{StaticResource SectionHeader}" Margin="0,8,0,6" FontSize="12"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="75"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="32"/>
+                            <RowDefinition Height="32"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="lblFileName" Grid.Row="0" Text="File Name:" Style="{StaticResource FieldLabel}"/>
+                        <TextBox x:Name="txtFileName" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"
+                                 Style="{StaticResource DarkTextBox}" Height="26"/>
+                        <TextBlock x:Name="lblFolder" Grid.Row="1" Text="Folder:" Style="{StaticResource FieldLabel}"/>
+                        <TextBox x:Name="txtPath" Grid.Row="1" Grid.Column="1" Style="{StaticResource DarkTextBox}" Height="26"/>
+                        <Button x:Name="btnBrowsePath" Grid.Row="1" Grid.Column="2" Content="Browse" Height="26"
+                                Style="{StaticResource DarkButton}" Margin="4,0,0,0" Click="BtnBrowsePath_Click"/>
+                    </Grid>
+
+                    <!-- Options Grid -->
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- PDF Options -->
+                        <Grid Grid.Column="0" VerticalAlignment="Center" Height="82">
+                            <CheckBox x:Name="chkMergePdf" Content="Merge PDF" IsChecked="True"
+                                      Style="{StaticResource DarkCheck}" Foreground="#22C55E" FontWeight="Bold" Margin="0,0,0,57"
+                                      Checked="ChkMergePdf_Changed" Unchecked="ChkMergePdf_Changed"/>
+                            <CheckBox x:Name="chkPdfEditor" Content="PDF Editor"
+                                      Style="{StaticResource DarkCheck}" Foreground="#C084FC" FontWeight="Bold"
+                                      Checked="ChkPdfEditor_Changed" Unchecked="ChkPdfEditor_Changed" Margin="0,29,0,30"/>
+                            <CheckBox x:Name="chkOpenPdf" Content="Open when done" IsChecked="True"
+                                      Style="{StaticResource DarkCheck}" Margin="0,55,0,5"/>
+                        </Grid>
+
+                        <!-- Image Options -->
+                        <Border Grid.Column="1" Background="{StaticResource SurfaceBrush}" CornerRadius="6" Padding="10,8"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Margin="15,0,0,0" Height="80" VerticalAlignment="Top">
+                            <StackPanel>
+                                <CheckBox x:Name="chkConvertImage" Content="Convert to Image"
+                                          Style="{StaticResource DarkCheck}" Foreground="#60A5FA" FontWeight="Bold" Margin="0,-4,0,4"
+                                          Checked="ChkConvertImage_Changed" Unchecked="ChkConvertImage_Changed" HorizontalAlignment="Center"/>
+                                <StackPanel x:Name="pnlImgFormat" Orientation="Vertical">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Style.Triggers>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Opacity" Value="0.4"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <StackPanel Orientation="Horizontal" Width="99" Margin="0,-1,0,0">
+                                        <RadioButton x:Name="rbPng" Content="PNG" Style="{StaticResource DarkRadio}" Margin="0,0,16,0"/>
+                                        <RadioButton x:Name="rbJpg" Content="JPG" Style="{StaticResource DarkRadio}" IsChecked="True" Width="39"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
+                                        <TextBlock Text="DPI:" Style="{StaticResource FieldLabel}" Margin="10,-3,8,0" Width="30"/>
+                                        <TextBox x:Name="txtDpi" Text="600" Style="{StaticResource DarkTextBox}" Width="55" Height="25" TextAlignment="Center" Margin="-10,-3,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+
+                <!-- RIGHT COLUMN -->
+                <StackPanel Grid.Column="2">
+                    <!-- Section 4: Scope -->
+                    <TextBlock Text="4. SELECTION" Style="{StaticResource SectionHeader}" FontSize="12"/>
+                    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="6"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10,6" Height="102">
+                        <StackPanel>
+                            <RadioButton x:Name="rbCurrent" GroupName="Scope" Content="Auto Select" IsChecked="True" Style="{StaticResource DarkRadio}" Checked="TriggerPreview" Height="20"/>
+                            <RadioButton x:Name="rbSelect" GroupName="Scope" Content="Manual Select" Style="{StaticResource DarkRadio}" Checked="TriggerPreview" Height="20"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding IsChecked, ElementName=rbSelect}" HorizontalAlignment="Center" Width="189">
+                                <Button x:Name="btnSelectManual" Content="Select" Height="30" Width="60" Style="{StaticResource DarkButton}" Background="{StaticResource TrackBrush}" Click="BtnSelectManual_Click" Margin="0,0,3,0" FontSize="11"/>
+                                <Button x:Name="btnAddManual" Content="Add" Height="30" Width="60" Style="{StaticResource DarkButton}" Background="{StaticResource TrackBrush}" Click="BtnAddManual_Click" Margin="0,0,3,0" FontSize="11"/>
+                                <Button x:Name="btnRemoveManual" Content="Remove" Height="30" Width="62" Style="{StaticResource DarkButton}" Background="{StaticResource TrackBrush}" Click="BtnRemoveManual_Click" FontSize="11"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Section 5: Sort -->
+                    <TextBlock Text="5. SORT ORDER" Style="{StaticResource SectionHeader}" Margin="0,10,0,6" FontSize="12"/>
+                    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="6"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10,6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="34"/>
+                                <RowDefinition Height="34"/>
+                                <RowDefinition Height="34"/>
+                                <RowDefinition Height="34"/>
+                                <RowDefinition Height="30"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Priority 1:" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="cbOrd1" Grid.Row="0" Style="{StaticResource DarkComboBox}"
+                                      SelectionChanged="TriggerPreviewCombo" Grid.ColumnSpan="2" Margin="74,2,0,2"/>
+                            <TextBlock Grid.Row="1" Text="Priority 2:" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="cbOrd2" Grid.Row="1" Style="{StaticResource DarkComboBox}"
+                                      SelectionChanged="TriggerPreviewCombo" Grid.ColumnSpan="2" Margin="74,2,0,2"/>
+                            <TextBlock Grid.Row="2" Text="Base Point:" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="cbBase" Grid.Row="2" Style="{StaticResource DarkComboBox}"
+                                      SelectionChanged="TriggerPreviewCombo" Grid.ColumnSpan="2" Margin="74,2,0,2"/>
+                            <TextBlock Grid.Row="3" Text="Tolerance:" Style="{StaticResource FieldLabel}"/>
+                            <TextBox x:Name="txtFuzz" Grid.Row="3" Text="100"
+                                     Style="{StaticResource DarkTextBox}" Height="26" LostFocus="TriggerPreviewText" Grid.ColumnSpan="2" Margin="74,4,0,4"/>
+                            <CheckBox x:Name="chkMark" Grid.Row="4" Content="Mark plot regions"
+                                      Style="{StaticResource DarkCheck}" Checked="TriggerPreviewCheck" Unchecked="TriggerPreviewCheck" HorizontalAlignment="Left" Margin="0,3,0,3" Width="121" Grid.ColumnSpan="2"/>
+                            <Button x:Name="btnDeleteMarks" Grid.Row="4" Grid.Column="1" Content="Delete"
+                                    Style="{StaticResource DarkButton}" Background="{StaticResource TrackBrush}" HorizontalAlignment="Right" Height="25"
+                                    Click="BtnDeleteMarks_Click"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Section 6: Orientation -->
+                    <TextBlock Text="6. ORIENTATION" Style="{StaticResource SectionHeader}" Margin="0,10,0,6" FontSize="12"/>
+                    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="6"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10,6">
+                        <StackPanel Orientation="Horizontal" Height="20">
+                            <RadioButton x:Name="rbOrientAuto" GroupName="Orientation" Content="Auto" IsChecked="True" Style="{StaticResource DarkRadio}" Margin="0,0,7,0" FontSize="11"/>
+                            <RadioButton x:Name="rbOrientPortrait" GroupName="Orientation" Content="Portrait" Style="{StaticResource DarkRadio}" Margin="0,0,7,0" FontSize="11"/>
+                            <RadioButton x:Name="rbOrientLandscape" GroupName="Orientation" Content="Landscape" Style="{StaticResource DarkRadio}" FontSize="11"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <!-- BOTTOM BAR -->
+            <Border Grid.Row="2" Background="#12141A" Padding="14,8" CornerRadius="0,0,10,10" Height="50">
+                <DockPanel>
+                    <TextBlock x:Name="lblCount" Text="Ready" DockPanel.Dock="Left"
+                               Foreground="{StaticResource LabelBrush}" FontFamily="Segoe UI"
+                               FontSize="11" FontStyle="Italic" VerticalAlignment="Center" Width="200"/>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="btnBackToEditor" Content="Editor" Visibility="Collapsed"
+                                Style="{StaticResource DarkButton}" Width="90" Height="36" Margin="0,-2,6,0"
+                                Click="BtnBackToEditor_Click"/>
+                        <Button x:Name="btnPlot" Content="▶  START PLOT"
+                                Style="{StaticResource AccentButton}" Width="114" Height="36"
+                                Click="BtnPlot_Click" Margin="0,-2,0,0"/>
+                        <Button x:Name="btnCancel" Content="Cancel"
+                                Style="{StaticResource DarkButton}" Width="90" Height="36" Margin="6,-2,0,0"
+                                Click="BtnCancel_Click"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
