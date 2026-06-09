@@ -1,5 +1,11 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
+using TPL.Domain.Interfaces;
+using TPL.Domain.Services;
+using TPL.Infrastructure.AutoCad;
+using TPL.Infrastructure.License;
+using TPL.Infrastructure.Localization;
+using TPL.Presentation.ViewModels;
 
 namespace TPL
 {
@@ -24,30 +30,34 @@ namespace TPL
 
 			var services = new ServiceCollection();
 
-			// ── Domain Services ──────────────────────────────────────────
-			// services.AddSingleton<IFrameSortingService, FrameSortingService>();
-			// services.AddSingleton<IPdfPostProcessor, PdfPostProcessor>();
+			// ── Domain Services (pure logic, no AutoCAD) ────────────────
+			services.AddSingleton<IFrameSortingService, FrameSortingService>();
+			services.AddSingleton<IPdfPostProcessor, PdfPostProcessor>();
 
-			// ── Infrastructure Services ──────────────────────────────────
-			// services.AddSingleton<IDrawingQueryService, AutoCadQueryService>();
-			// services.AddSingleton<IPlotService, AutoCadPlotService>();
-			// services.AddSingleton<IMarkerService, MarkerService>();
-			// services.AddSingleton<ILicenseRepository, LicenseRepository>();
-			// services.AddSingleton<ILocalizationService, LocalizationService>();
+			// ── Infrastructure Services (AutoCAD + System) ──────────────
+			services.AddSingleton<IDrawingQueryService, AutoCadQueryService>();
+			services.AddSingleton<IPlotService, AutoCadPlotService>();
+			services.AddSingleton<IMarkerService, MarkerService>();
+			services.AddSingleton<ILicenseRepository, LicenseRepository>();
+			services.AddSingleton<ILocalizationService, LocalizationService>();
 
-			// ── Presentation ViewModels ──────────────────────────────────
-			// services.AddTransient<MainWindowViewModel>();
-			// services.AddTransient<PdfEditorViewModel>();
-			// services.AddTransient<LicenseViewModel>();
+			// ── Presentation ViewModels ─────────────────────────────────
+			services.AddTransient<MainWindowViewModel>();
+			services.AddTransient<LicenseWindowViewModel>();
+			services.AddTransient<ProgressWindowViewModel>();
 
 			_provider = services.BuildServiceProvider();
+
+			// Initialize localization immediately
+			var l10n = _provider.GetRequiredService<ILocalizationService>();
+			l10n.Initialize();
 		}
 
 		/// <summary>Resolve service từ DI Container.</summary>
 		public static T Resolve<T>() where T : class
 		{
 			if (_provider == null)
-				throw new InvalidOperationException("[TPL] ServiceContainer chưa được Initialize. Gọi ServiceContainer.Initialize() trong IExtensionApplication.Initialize() trước.");
+				throw new InvalidOperationException("[TPL] ServiceContainer chưa được Initialize.");
 
 			return _provider.GetRequiredService<T>();
 		}
