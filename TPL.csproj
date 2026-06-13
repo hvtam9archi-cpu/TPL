@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
     <LangVersion>10.0</LangVersion>
     <AssemblyName>TPL</AssemblyName>
     <RootNamespace>TPL</RootNamespace>
@@ -10,10 +10,20 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <PackageReference Include="AutoCAD.NET" Version="23.1.0" ExcludeAssets="runtime" />
     <PackageReference Include="AutoCAD.NET.Core" Version="23.1.0" ExcludeAssets="runtime" />
     <PackageReference Include="AutoCAD.NET.Model" Version="23.1.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <PackageReference Include="AutoCAD.NET" Version="25.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="AutoCAD.NET.Core" Version="25.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="AutoCAD.NET.Model" Version="25.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="PdfiumViewer" Version="2.13.0" />
     <PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" />
     <PackageReference Include="PDFsharp" Version="6.1.1" />
@@ -49,16 +59,21 @@
 
   <!-- Post-build: Tự động deploy vào ApplicationPlugins -->
   <Target Name="DeployBundle" AfterTargets="Build">
+    <!-- Xác định thư mục con dựa trên TargetFramework -->
+    <PropertyGroup>
+      <DeployFolderName Condition="'$(TargetFramework)' == 'net48'">v2021-2024</DeployFolderName>
+      <DeployFolderName Condition="'$(TargetFramework)' == 'net8.0-windows'">v2025-2026</DeployFolderName>
+    </PropertyGroup>
     <!-- Tạo thư mục bundle nếu chưa có -->
-    <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents" />
-    <!-- Copy tất cả các file DLL (bao gồm cả thư viện) vào Contents -->
-    <Copy SourceFiles="@(ReferenceCopyLocalPaths)" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents" SkipUnchangedFiles="false" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents" SkipUnchangedFiles="false" />
+    <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)" />
+    <!-- Copy tất cả các file DLL (bao gồm cả thư viện) vào Contents\$(DeployFolderName) -->
+    <Copy SourceFiles="@(ReferenceCopyLocalPaths)" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)" SkipUnchangedFiles="false" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)" SkipUnchangedFiles="false" />
     <!-- Copy PackageContents.xml vào bundle root -->
     <Copy SourceFiles="$(ProjectDir)TPL.bundle\PackageContents.xml" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle" SkipUnchangedFiles="false" />
     <!-- Copy pdfium.dll (Native) -->
-    <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\x64" />
-    <Copy SourceFiles="$(TargetDir)x64\pdfium.dll" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\x64" SkipUnchangedFiles="false" Condition="Exists('$(TargetDir)x64\pdfium.dll')" />
+    <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)\x64" />
+    <Copy SourceFiles="$(TargetDir)x64\pdfium.dll" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)\x64" SkipUnchangedFiles="false" Condition="Exists('$(TargetDir)x64\pdfium.dll')" />
   </Target>
 </Project>
 
