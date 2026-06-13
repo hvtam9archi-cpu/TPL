@@ -39,12 +39,14 @@
 
 ---
 
-## Kiến trúc mã nguồn & Công nghệ sử dụng
-
-- **AutoCAD .NET API:** Tương tác trực tiếp với cơ sở dữ liệu AutoCAD và điều khiển tiến trình in ấn.
-- **WPF (Windows Presentation Foundation):** Xây dựng giao diện đồ họa cao cấp (`MainWindow.xaml`, `PdfEditorWindow.xaml`, `LicenseWindow.xaml`).
-- **Thư viện PDF chuyên dụng:** `PdfiumViewer` và `PDFsharp` đảm nhận việc dựng hình ảnh và thao tác cấu trúc tệp PDF.
-- **Quản lý Tài nguyên (Resource & Memory Management):** Tách biệt logic xử lý bản vẽ (`PlotLogic.cs`, `CoreLogic.cs`) và quản lý bộ nhớ thông qua Transient Graphics để đảm bảo AutoCAD hoạt động ổn định, không bị rò rỉ bộ nhớ hoặc crash hệ thống.
+- **Cấu trúc Thư mục Dự án:**
+  - `UI/`: Chứa toàn bộ giao diện người dùng WPF (`MainWindow`, `PdfEditorWindow`, `LicenseWindow`, `ProgressWindow`, `DarkProgressControl`).
+  - `Logic/`: Chứa logic xử lý nghiệp vụ, in ấn bản vẽ và cấu hình (`CoreLogic.cs`, `PlotLogic.cs`, `LicenseManager.cs`, `Localization.cs`).
+  - Root: Gồm các entry point chính (`Commands.cs`, `RibbonSetup.cs`), tệp dự án (`TPL.csproj`) và các tài nguyên đi kèm.
+- **Công nghệ sử dụng:**
+  - **WPF (Windows Presentation Foundation):** Thiết kế giao diện Dark Mode đồng bộ, chuyên nghiệp.
+  - **Thư viện PDF:** `PdfiumViewer` và `PDFsharp` đảm nhận việc hiển thị và xử lý cấu trúc file PDF.
+  - **Quản lý Tài nguyên (Resource & Memory Management):** Tách biệt logic xử lý bản vẽ và quản lý bộ nhớ thông qua Transient Graphics để đảm bảo AutoCAD hoạt động ổn định, không bị rò rỉ bộ nhớ hoặc crash hệ thống.
 
 ---
 
