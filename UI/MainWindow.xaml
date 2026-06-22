@@ -262,7 +262,7 @@
 								<Grid Width="14" Height="14">
 									<!-- Box -->
 									<Border x:Name="checkBox" Width="14" Height="14" CornerRadius="3"
-									        Background="{StaticResource SurfaceBrush}"
+									        Background="{StaticResource TrackBrush}"
 									        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
 									<!-- Checkmark -->
 									<Viewbox x:Name="checkMark" Width="10" Height="10" Opacity="0"

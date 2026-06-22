@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TPL License Key Generator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0f1117;
+      color: #e8eaed;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 0;
+    }
+
+    .card {
+      background: #181a1f;
+      border: 1px solid #333640;
+      border-radius: 16px;
+      padding: 0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+
+    .card-body {
+      padding: 28px 32px 32px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 0;
+      padding: 16px 32px;
+      background: #12141a;
+      border-bottom: 1px solid #333640;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+      background: #2563eb;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #e8eaed;
+      margin: 0;
+    }
+
+    .header .sub {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    /* ─── Tabs ─── */
+    .tabs {
+      display: flex;
+      background: #12141a;
+      border-bottom: 1px solid #333640;
+      padding: 0 32px;
+    }
+
+    .tab-btn {
+      padding: 12px 20px;
+      background: transparent;
+      border: none;
+      color: #6b7280;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn:hover {
+      color: #e8eaed;
+    }
+
+    .tab-btn.active {
+      color: #2563eb;
+      border-bottom-color: #2563eb;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .form-group label .hint {
+      text-transform: none;
+      font-weight: 400;
+      color: #6b7280;
+      font-size: 11px;
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      padding: 10px 14px;
+      background: #2b2d32;
+      border: 1px solid #333640;
+      border-radius: 8px;
+      color: #e8eaed;
+      font-size: 14px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus {
+      border-color: #2563eb;
+    }
+
+    input[type="text"]::placeholder {
+      color: #6b7280;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .input-with-btn {
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-with-btn input {
+      flex: 1;
+    }
+
+    .input-with-btn button {
+      flex-shrink: 0;
+    }
+
+    .row {
+      display: flex;
+      gap: 16px;
+    }
+
+    .row .form-group {
+      flex: 1;
+    }
+
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+      width: 100%;
+      padding: 12px;
+      font-size: 14px;
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-primary:active {
+      background: #1e40af;
+    }
+
+    .btn-secondary {
+      background: #2b2d32;
+      color: #e8eaed;
+      border: 1px solid #333640;
+      padding: 10px 16px;
+      font-size: 12px;
+    }
+
+    .btn-secondary:hover {
+      background: #3a3d45;
+    }
+
+    .btn-success {
+      background: #16a34a;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #15803d;
+    }
+
+    .btn-danger {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
+    .btn-danger:active {
+      background: #991b1b;
+    }
+
+    .btn-danger-sm {
+      background: transparent;
+      color: #ef4444;
+      border: 1px solid #5c2d2d;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-danger-sm:hover {
+      background: #3b1c1c;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ─── Revoke Type Radio ─── */
+    .revoke-type-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .radio-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: #2b2d32;
+      border: 1px solid #333640;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 13px;
+      color: #9ca3af;
+    }
+
+    .radio-label input { display: none; }
+
+    .radio-label[data-active="true"] {
+      border-color: #2563eb;
+      background: #1e293b;
+      color: #e8eaed;
+    }
+
+    .radio-label:hover {
+      border-color: #4b5563;
+    }
+
+    /* ─── Revoke Table ─── */
+    .revoke-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .revoke-table thead th {
+      text-align: left;
+      padding: 8px 6px;
+      color: #6b7280;
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      border-bottom: 1px solid #333640;
+      position: sticky;
+      top: 0;
+      background: #181a1f;
+    }
+
+    .revoke-table tbody td {
+      padding: 8px 6px;
+      border-bottom: 1px solid #252830;
+      color: #d1d5db;
+      vertical-align: middle;
+      word-break: break-all;
+    }
+
+    .revoke-table tbody tr:hover td {
+      background: #1f2127;
+    }
+
+    .revoke-table .empty-row {
+      text-align: center;
+      padding: 24px;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .revoke-table .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge-hwid {
+      background: #1e3a5f;
+      color: #60a5fa;
+    }
+
+    .badge-key {
+      background: #3b1c1c;
+      color: #f87171;
+    }
+
+    .revoke-table .btn-del {
+      background: transparent;
+      border: none;
+      color: #6b7280;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .revoke-table .btn-del:hover {
+      color: #ef4444;
+      background: #3b1c1c;
+    }
+
+    #revokeTableContainer {
+      max-height: 320px;
+      overflow-y: auto;
+      border: 1px solid #252830;
+      border-radius: 8px;
+    }
+
+    /* ─── HWID Cards ─── */
+    #hwidCardsContainer {
+      max-height: 580px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .hwid-card {
+      background: #1f2127;
+      border: 1px solid #252830;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .hwid-card:hover {
+      border-color: #333640;
+    }
+
+    .hwid-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .hwid-card-header .expand-icon {
+      font-size: 10px;
+      color: #6b7280;
+      width: 14px;
+      text-align: center;
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    .hwid-card-header.expanded .expand-icon {
+      transform: rotate(90deg);
+    }
+
+    .hwid-card-header .hwid-full {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      color: #e8eaed;
+      font-weight: 600;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .hwid-card-header .hwid-note {
+      font-size: 11px;
+      color: #9ca3af;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 2px 6px;
+      max-width: 180px;
+      min-width: 80px;
+      outline: none;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .hwid-card-header .hwid-note:focus {
+      border-color: #2563eb;
+      background: #2b2d32;
+      color: #e8eaed;
+    }
+
+    .hwid-card-header .hwid-note::placeholder {
+      color: #4b5563;
+      font-style: italic;
+    }
+
+    .hwid-card-header .hwid-date {
+      font-size: 10px;
+      color: #6b7280;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .hwid-card-header .hwid-badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 8px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .hwid-card-header .hwid-del-btn {
+      background: transparent;
+      border: none;
+      color: #4b5563;
+      cursor: pointer;
+      font-size: 13px;
+      padding: 2px 5px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .hwid-card-header .hwid-del-btn:hover {
+      color: #ef4444;
+      background: #3b1c1c;
+    }
+
+    /* ─── Keys table inside card ─── */
+    .hwid-card-body {
+      display: none;
+      border-top: 1px solid #252830;
+      padding: 0;
+    }
+
+    .hwid-card-body.open {
+      display: block;
+    }
+
+    .hwid-keys-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      table-layout: fixed;
+    }
+
+    .hwid-keys-table thead th {
+      text-align: left;
+      padding: 6px 8px;
+      color: #6b7280;
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      border-bottom: 1px solid #252830;
+      background: #1a1c22;
+    }
+
+    .hwid-keys-table thead tr th:nth-child(1) { width: 32px; }
+    .hwid-keys-table thead tr th:nth-child(2) { width: auto; }
+    .hwid-keys-table thead tr th:nth-child(3) { width: 62px; text-align: center; }
+    .hwid-keys-table thead tr th:nth-child(4) { width: 50px; }
+
+    .hwid-keys-table tbody td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #1f2127;
+      color: #d1d5db;
+      vertical-align: middle;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .hwid-keys-table tbody td:nth-child(3) { text-align: center; }
+    .hwid-keys-table tbody tr.revoked-row td {
+      opacity: 0.5;
+    }
+
+    .hwid-keys-table tbody tr:hover td {
+      background: #252830;
+    }
+
+    .hwid-keys-table .key-del-btn {
+      background: transparent;
+      border: none;
+      color: #4b5563;
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px 5px;
+      border-radius: 3px;
+      transition: all 0.2s;
+    }
+
+    .hwid-keys-table .key-del-btn:hover {
+      color: #ef4444;
+      background: #3b1c1c;
+    }
+
+    .hwid-keys-table .revoke-checkbox {
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+      accent-color: #dc2626;
+    }
+
+    .hwid-card .empty-keys {
+      text-align: center;
+      padding: 16px;
+      color: #6b7280;
+      font-size: 12px;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 24px;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    /* ─── Search bar ─── */
+    .search-box {
+      position: relative;
+    }
+
+    .search-box input {
+      padding-left: 32px;
+    }
+
+    .search-box .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #6b7280;
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    /* ─── Summary bar ─── */
+    .summary-bar {
+      display: flex;
+      gap: 16px;
+      padding: 10px 14px;
+      background: #1f2127;
+      border: 1px solid #252830;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .summary-item .num {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .summary-item .label {
+      color: #6b7280;
+    }
+
+    .summary-total .num { color: #e8eaed; }
+    .summary-active .num { color: #22c55e; }
+    .summary-revoked .num { color: #ef4444; }
+
+    /* ─── Collapsible ─── */
+    .collapsible-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      cursor: pointer;
+      user-select: none;
+      border-top: 1px solid #333640;
+      margin-top: 16px;
+    }
+
+    .collapsible-header:hover {
+      color: #e8eaed;
+    }
+
+    .collapsible-header .arrow {
+      transition: transform 0.2s;
+      font-size: 12px;
+    }
+
+    .collapsible-header.open .arrow {
+      transform: rotate(90deg);
+    }
+
+    .collapsible-body {
+      display: none;
+      padding-top: 12px;
+    }
+
+    .collapsible-body.open {
+      display: block;
+    }
+
+    /* ─── Revoke checkbox ─── */
+    .revoke-checkbox {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: #dc2626;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .status-active {
+      background: #132b1a;
+      color: #22c55e;
+    }
+
+    .status-revoked {
+      background: #2e1a1a;
+      color: #ef4444;
+    }
+
+    /* ─── HWID group header ─── */
+    .hwid-group-header td {
+      background: #1a1c22 !important;
+      font-weight: 700;
+      font-size: 12px;
+      color: #9ca3af;
+      padding: 4px 6px !important;
+      border-bottom: 1px solid #333640;
+    }
+
+    .hwid-group-header:hover td {
+      background: #1a1c22 !important;
+    }
+
+    .key-cell {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    .copy-cell-btn {
+      background: transparent;
+      border: none;
+      color: #6b7280;
+      cursor: pointer;
+      font-size: 11px;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .copy-cell-btn:hover {
+      color: #e8eaed;
+      background: #2b2d32;
+    }
+
+    /* ─── Result Card ─── */
+    .result {
+      display: none;
+      margin-top: 24px;
+      padding: 20px;
+      background: #1a2e1a;
+      border: 1px solid #22c55e;
+      border-radius: 12px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .result.error {
+      background: #2e1a1a;
+      border-color: #ef4444;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+
+    .result .key-display {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 20px;
+      font-weight: 700;
+      color: #22c55e;
+      letter-spacing: 1px;
+      padding: 12px 0;
+      word-break: break-all;
+      user-select: all;
+      cursor: pointer;
+    }
+
+    .result.error .key-display {
+      color: #ef4444;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .result .details {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #22c55e33;
+      font-size: 12px;
+      color: #9ca3af;
+      font-family: 'Consolas', 'Courier New', monospace;
+    }
+
+    .result.error .details {
+      border-top-color: #ef444433;
+    }
+
+    .result .details .row-detail {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+    }
+
+    .result .details .row-detail .val {
+      color: #d1d5db;
+      text-align: right;
+      max-width: 60%;
+      word-break: break-all;
+    }
+
+    .result .actions {
+      margin-top: 16px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .result .actions button {
+      flex: 1;
+    }
+
+    /* ─── Spinner ─── */
+    .spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #333640;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ─── Footer ─── */
+    .footer {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 11px;
+      color: #4b5563;
+    }
+
+    .footer a {
+      color: #6b7280;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      color: #9ca3af;
+    }
+
+    /* ─── Two-column layout ─── */
+    .app-layout {
+      display: flex;
+      gap: 24px;
+      width: 100%;
+      max-width: 1320px;
+      min-height: 100vh;
+      padding: 24px;
+      align-items: flex-start;
+    }
+
+    .left-col {
+      width: 500px;
+      flex-shrink: 0;
+    }
+
+    .left-col .card {
+      max-width: 100%;
+    }
+
+    .left-col .card-body {
+      padding: 24px 28px 28px;
+    }
+
+    .right-col {
+      flex: 1;
+      min-width: 0;
+      position: sticky;
+      top: 24px;
+    }
+
+    .keys-panel {
+      background: #181a1f;
+      border: 1px solid #333640;
+      border-radius: 16px;
+      padding: 20px 22px 22px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .keys-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #e8eaed;
+    }
+
+    /* ─── Right panel — no wrapping ─── */
+    .keys-panel .summary-bar {
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .keys-panel .summary-item { gap: 8px; }
+
+    .keys-panel .summary-item .num { font-size: 17px; }
+
+    .keys-panel .search-box input {
+      font-size: 13px;
+      padding: 8px 10px 8px 32px;
+    }
+
+    .hwid-card-header .status-badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      white-space: nowrap;
+    }
+
+    .hwid-keys-table .status-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    .hwid-keys-table .copy-cell-btn {
+      background: transparent;
+      border: none;
+      color: #6b7280;
+      cursor: pointer;
+      font-size: 11px;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .hwid-keys-table .copy-cell-btn:hover {
+      color: #e8eaed;
+      background: #2b2d32;
+    }
+
+    .hwid-keys-table .key-cell {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ─── Left panel — no wrapping ─── */
+    .left-col .form-group label {
+      white-space: nowrap;
+    }
+
+    .header h1 {
+      white-space: nowrap;
+    }
+
+    .left-col .row .form-group {
+      min-width: 0;
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 1080px) {
+      .app-layout {
+        flex-direction: column;
+        align-items: center;
+      }
+      .left-col { width: 100%; max-width: 540px; }
+      .right-col { width: 100%; max-width: 540px; position: static; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- ═══ LEFT: Card ─── -->
+  <div class="left-col">
+    <div class="card">
+      <!-- Header -->
+      <div class="header">
+        <div class="logo">TP</div>
+        <div>
+          <h1>TPL License Manager</h1>
+          <div class="sub">Batch Plot License System — Admin Panel</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('generate')">🔑 Sinh mã</button>
+        <button class="tab-btn" onclick="switchTab('revoke')">⛔ Thu hồi</button>
+      </div>
+
+      <div class="card-body">
+
+        <!-- ══════ TAB 1: SINH MÃ ══════ -->
+        <div class="tab-content active" id="tab-generate">
+          <form id="keyForm" onsubmit="return handleGenerate(event)">
+            <div class="form-group">
+              <label>Hardware ID <span class="hint">(8+ ký tự hex)</span></label>
+              <div class="input-with-btn">
+                <input type="text" id="hwId" placeholder="Ví dụ: A1B2C3D4E5F6..." required autocomplete="off">
+                <button type="button" class="btn btn-secondary" onclick="pasteHwId()" title="Dán từ clipboard">📋</button>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="form-group">
+                <label>Số ngày <span class="hint">(≥ 9999 = ∞)</span></label>
+                <input type="number" id="days" value="9999" min="1" max="99999" required>
+              </div>
+              <div class="form-group">
+                <label>Sequence <span class="hint">(tự động nếu để trống)</span></label>
+                <input type="text" id="seq" placeholder="VD: order01" autocomplete="off">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="generateBtn">
+              ⚡ SINH MÃ KÍCH HOẠT
+            </button>
+
+            <div class="spinner" id="spinner"></div>
+          </form>
+
+          <!-- Result -->
+          <div class="result" id="result">
+            <div class="label">Mã kích hoạt</div>
+            <div class="key-display" id="keyDisplay" onclick="copyKey()" title="Click để copy"></div>
+            <div class="actions">
+              <button class="btn btn-success" onclick="copyKey()">📋 Copy Key</button>
+              <button class="btn btn-secondary" onclick="generateAnother()">↻ Tạo tiếp</button>
+            </div>
+            <div class="details" id="details"></div>
+          </div>
+        </div>
+
+        <!-- ══════ TAB 2: THU HỒI ══════ -->
+        <div class="tab-content" id="tab-revoke">
+          <p style="font-size:12px;color:#6b7280;margin-bottom:14px;line-height:1.5">
+            Tick/untick key bên khung <strong>📋 Danh sách Key</strong> để thu hồi hoặc bỏ thu hồi.
+            <br>Hoặc dùng mục nhập thủ công bên dưới.
+          </p>
+
+          <!-- Revoke manual (collapsible, luôn mở) -->
+          <div class="collapsible-header open" onclick="toggleManualRevoke()" id="manualRevokeHeader">
+            <span style="font-size:12px;font-weight:600;color:#6b7280">📝 Nhập thủ công (HWID / Key)</span>
+            <span class="arrow open">▼</span>
+          </div>
+          <div class="collapsible-body open" id="manualRevokeBody">
+            <div class="form-group">
+              <div class="revoke-type-group">
+                <label class="radio-label" data-active="true">
+                  <input type="radio" name="revokeType" value="HWID" checked onchange="onRevokeTypeChange()">
+                  <span>📋 Hardware ID</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="revokeType" value="KEY" onchange="onRevokeTypeChange()">
+                  <span>🔑 License Key</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label id="revokeValueLabel">Giá trị HWID <span class="hint">(dán từ License Window)</span></label>
+              <div class="input-with-btn">
+                <input type="text" id="revokeValue" placeholder="Nhập HWID hoặc License Key..." autocomplete="off">
+                <button type="button" class="btn btn-secondary" onclick="pasteRevokeValue()" title="Dán từ clipboard">📋</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Lý do <span class="hint">(tuỳ chọn)</span></label>
+              <input type="text" id="revokeReason" placeholder="VD: Người dùng yêu cầu refund" autocomplete="off">
+            </div>
+
+            <div class="row" style="gap:8px">
+              <button class="btn btn-danger" id="addRevokeBtn" onclick="addRevoke()" style="flex:1;padding:8px;font-size:11px">
+                ⛔ THÊM VÀO DANH SÁCH THU HỒI
+              </button>
+            </div>
+
+            <div class="spinner" id="revokeSpinner"></div>
+
+            <div class="result" id="revokeResult" style="display:none;margin-top:12px">
+              <div class="key-display" id="revokeResultMsg" style="font-size:13px"></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /card-body -->
+    </div>
+
+    <div class="footer">
+      <span>🔒 Dành cho Admin — </span>
+      <a href="#" onclick="return showDebug()">Chi tiết kỹ thuật</a>
+      <span> — </span>
+      <a href="#" onclick="return copyRevokeUrl()">📋 Copy Revoke URL</a>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT: Generated Keys Panel ─── -->
+  <div class="right-col">
+    <div class="keys-panel">
+      <div class="keys-panel-header">
+        <span>📋 Danh sách Key</span>
+        <button class="btn btn-secondary" onclick="loadGeneratedKeys()" style="padding:4px 10px;font-size:11px">↻</button>
+      </div>
+
+      <!-- Summary -->
+      <div class="summary-bar" style="margin:0 0 10px 0">
+        <div class="summary-item summary-total">
+          <span class="num" id="statTotal">0</span>
+          <span class="label">tổng</span>
+        </div>
+        <div class="summary-item summary-active">
+          <span class="num" id="statActive">0</span>
+          <span class="label">hoạt động</span>
+        </div>
+        <div class="summary-item summary-revoked">
+          <span class="num" id="statRevoked">0</span>
+          <span class="label">đã thu hồi</span>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="search-box" style="margin-bottom:10px">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="keySearch" placeholder="Tìm HWID hoặc Key..." oninput="filterHwIdCards()" autocomplete="off">
+      </div>
+
+      <!-- HWID Cards list -->
+      <div id="hwidCardsContainer"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ─── Handle form submit ────────────────────────────────────
+  function handleGenerate(e) {
+    e.preventDefault();
+
+    var hwId = document.getElementById("hwId").value.trim();
+    var days = parseInt(document.getElementById("days").value);
+    var seq = document.getElementById("seq").value.trim();
+
+    // Validate
+    if (!hwId) {
+      showError("Vui lòng nhập Hardware ID.");
+      return false;
+    }
+
+    var cleaned = hwId.replace(/-/g, "").toUpperCase();
+    if (!/^[0-9A-F]{8,}$/.test(cleaned)) {
+      showError("Hardware ID không hợp lệ. Phải là chuỗi hex ít nhất 8 ký tự (0-9, A-F).");
+      return false;
+    }
+
+    if (!days || days < 1) {
+      showError("Số ngày phải lớn hơn 0.");
+      return false;
+    }
+
+    // Show loading
+    var btn = document.getElementById("generateBtn");
+    var spinner = document.getElementById("spinner");
+    btn.disabled = true;
+    btn.textContent = "⏳ Đang tạo...";
+    spinner.style.display = "block";
+
+    // Call server
+    google.script.run
+      .withSuccessHandler(function(result) {
+        showResult(result);
+        btn.disabled = false;
+        btn.textContent = "⚡ SINH MÃ KÍCH HOẠT";
+        spinner.style.display = "none";
+      })
+      .withFailureHandler(function(err) {
+        showError(err.message || "Lỗi không xác định.");
+        btn.disabled = false;
+        btn.textContent = "⚡ SINH MÃ KÍCH HOẠT";
+        spinner.style.display = "none";
+      })
+      .generateLicenseKey(cleaned, days, seq);
+
+    return false;
+  }
+
+  // ─── Show result ───────────────────────────────────────────
+  function showResult(data) {
+    var result = document.getElementById("result");
+    var keyDisplay = document.getElementById("keyDisplay");
+    var details = document.getElementById("details");
+
+    result.className = "result";
+    result.style.display = "block";
+
+    keyDisplay.textContent = data.key;
+    keyDisplay.style.cursor = "pointer";
+
+    var expireText = data.expires;
+    if (data.days >= 9999) {
+      expireText = "♾️ Vĩnh viễn";
+    } else {
+      expireText = "📅 " + data.days + " ngày";
+    }
+
+    details.innerHTML = `
+      <div class="row-detail"><span>Short HWID</span><span class="val">${data.shortHwId}</span></div>
+      <div class="row-detail"><span>Thời hạn</span><span class="val">${expireText}</span></div>
+      <div class="row-detail"><span>Seq Byte</span><span class="val">0x${data.seqByte.toString(16).toUpperCase().padStart(2, "0")} (${data.seqByte})</span></div>
+      <div class="row-detail"><span>Chữ ký (3B)</span><span class="val">${data.signature}</span></div>
+      <div class="row-detail"><span>SHA256 đầy đủ</span><span class="val" style="font-size:10px">${data.fullHash}</span></div>
+      <div class="row-detail"><span>Key gốc</span><span class="val">${data.rawKey}</span></div>
+    `;
+
+    // Scroll to result
+    result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    // Refresh danh sách key bên phải
+    loadGeneratedKeys();
+  }
+
+  // ─── Show error ────────────────────────────────────────────
+  function showError(msg) {
+    var result = document.getElementById("result");
+    var keyDisplay = document.getElementById("keyDisplay");
+
+    result.className = "result error";
+    result.style.display = "block";
+    keyDisplay.textContent = "❌ " + msg;
+
+    var details = document.getElementById("details");
+    details.innerHTML = "";
+
+    result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  // ─── Copy key to clipboard ─────────────────────────────────
+  function copyKey() {
+    var key = document.getElementById("keyDisplay").textContent;
+    if (!key || key.startsWith("❌")) return;
+
+    navigator.clipboard.writeText(key).then(function() {
+      var btn = document.querySelector(".btn-success");
+      var original = btn.textContent;
+      btn.textContent = "✅ Đã copy!";
+      setTimeout(function() { btn.textContent = original; }, 1500);
+    }).catch(function() {
+      // Fallback
+      var range = document.createRange();
+      range.selectNode(document.getElementById("keyDisplay"));
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+      document.execCommand("copy");
+      window.getSelection().removeAllRanges();
+    });
+  }
+
+  // ─── Paste HWID from clipboard ─────────────────────────────
+  function pasteHwId() {
+    navigator.clipboard.readText().then(function(text) {
+      if (text) {
+        document.getElementById("hwId").value = text.trim();
+      }
+    }).catch(function() {
+      // Fallback: focus the input
+      document.getElementById("hwId").focus();
+    });
+  }
+
+  // ─── Generate another ──────────────────────────────────────
+  function generateAnother() {
+    document.getElementById("result").style.display = "none";
+    document.getElementById("hwId").focus();
+  }
+
+  // ─── Tab switching ─────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+
+    if (name === 'generate') {
+      document.querySelectorAll('.tab-btn')[0].classList.add('active');
+      document.getElementById('tab-generate').classList.add('active');
+    } else {
+      document.querySelectorAll('.tab-btn')[1].classList.add('active');
+      document.getElementById('tab-revoke').classList.add('active');
+    }
+  }
+
+  // ─── Tự động load keys panel khi trang mở ─────────────────
+  window.addEventListener('load', function() {
+    loadGeneratedKeys();
+  });
+
+  // ─── Load Generated Keys ──────────────────────────────────
+  function loadGeneratedKeys() {
+    var container = document.getElementById('hwidCardsContainer');
+    container.innerHTML = '<div class="no-results">⏳ Đang tải...</div>';
+
+    google.script.run
+      .withSuccessHandler(function(keys) {
+        renderHwIdCards(keys);
+      })
+      .withFailureHandler(function(err) {
+        container.innerHTML = '<div class="no-results">❌ Lỗi: ' + escapeHtml(err.message) + '</div>';
+      })
+      .getAllGeneratedKeys();
+  }
+
+  // ─── Render HWID Cards ────────────────────────────────────
+  var _allKeys = [];
+
+  function renderHwIdCards(keys) {
+    _allKeys = keys || [];
+    filterHwIdCards();
+  }
+
+  function filterHwIdCards() {
+    var keys = _allKeys;
+    var search = document.getElementById('keySearch').value.trim().toUpperCase();
+    var container = document.getElementById('hwidCardsContainer');
+
+    // Lọc
+    if (search) {
+      keys = keys.filter(function(k) {
+        return (k.fullHwId && k.fullHwId.indexOf(search) !== -1) ||
+               (k.shortHwId && k.shortHwId.indexOf(search) !== -1) ||
+               (k.key && k.key.toUpperCase().indexOf(search) !== -1) ||
+               (k.rawKey && k.rawKey.indexOf(search) !== -1) ||
+               (k.note && k.note.toUpperCase().indexOf(search) !== -1);
+      });
+    }
+
+    // Group theo fullHwId
+    var groups = {};
+    keys.forEach(function(k) {
+      var hw = k.fullHwId || "???";
+      if (!groups[hw]) groups[hw] = [];
+      groups[hw].push(k);
+    });
+
+    // Mỗi group sắp xếp key mới nhất trước
+    Object.keys(groups).forEach(function(hw) {
+      groups[hw].sort(function(a, b) {
+        return (b.generated || "").localeCompare(a.generated || "");
+      });
+    });
+
+    // HWID sắp xếp theo key mới nhất
+    var sortedHwIds = Object.keys(groups).sort(function(a, b) {
+      var aLatest = groups[a][0].generated || "";
+      var bLatest = groups[b][0].generated || "";
+      return bLatest.localeCompare(aLatest);
+    });
+
+    // Thống kê
+    var total = keys.length;
+    var revoked = 0;
+    keys.forEach(function(k) { if (k.revoked) revoked++; });
+    var active = total - revoked;
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statActive').textContent = active;
+    document.getElementById('statRevoked').textContent = revoked;
+
+    if (keys.length === 0) {
+      if (_allKeys.length === 0) {
+        container.innerHTML = '<div class="no-results">🔑 Chưa có key nào. Hãy tạo key ở tab "Sinh mã".</div>';
+      } else {
+        container.innerHTML = '<div class="no-results">🔍 Không tìm thấy kết quả phù hợp.</div>';
+      }
+      return;
+    }
+
+    var html = '';
+    sortedHwIds.forEach(function(hwId) {
+      var keyList = groups[hwId];
+      var firstKey = keyList[0];
+      var hwRevoked = 0;
+      keyList.forEach(function(k) { if (k.revoked) hwRevoked++; });
+
+      var cardId = 'card-' + hwId.replace(/[^A-Z0-9]/g, '');
+      var note = firstKey.note || '';
+      var firstDate = keyList[keyList.length - 1].generated || '';
+
+      var badgeHtml = '<span class="status-badge status-active">' + keyList.length + ' key(s)</span>';
+      if (hwRevoked > 0) {
+        badgeHtml += ' <span class="status-badge status-revoked">' + hwRevoked + ' revoked</span>';
+      }
+
+      html += '<div class="hwid-card" id="' + cardId + '">' +
+        '<div class="hwid-card-header" onclick="toggleHwIdCard(\'' + cardId + '\')">' +
+          '<span class="expand-icon">▶</span>' +
+          '<span class="hwid-full">' + escapeHtml(hwId) + '</span>' +
+          '<input class="hwid-note" placeholder="ghi chú..." value="' + escapeHtml(note) + '" ' +
+            'onclick="event.stopPropagation()" ' +
+            'onchange="updateNote(\'' + escapeHtml(hwId) + '\', this.value)" ' +
+            'onblur="updateNote(\'' + escapeHtml(hwId) + '\', this.value)">' +
+          '<span class="hwid-date">' + escapeHtml(firstDate) + '</span>' +
+          '<span>' + badgeHtml + '</span>' +
+          '<button class="hwid-del-btn" onclick="event.stopPropagation();deleteHwId(\'' + escapeHtml(hwId) + '\')" title="Xoá tất cả key của HWID này">✕</button>' +
+        '</div>' +
+        '<div class="hwid-card-body" id="body-' + cardId + '">' +
+          '<table class="hwid-keys-table"><thead><tr>' +
+            '<th>T/h</th><th>License Key</th><th>Hạn</th><th></th>' +
+          '</tr></thead><tbody>';
+
+      keyList.forEach(function(k) {
+        var isRevoked = k.revoked;
+        var rowClass = isRevoked ? ' revoked-row' : '';
+        var displayKey = k.key || '';
+        if (!displayKey && k.rawKey) {
+          displayKey = k.rawKey;
+          if (displayKey.length === 16) {
+            displayKey = displayKey.substring(0,4) + '-' + displayKey.substring(4,8) + '-' + displayKey.substring(8,12) + '-' + displayKey.substring(12,16);
+          }
+        }
+        var checkedAttr = isRevoked ? 'checked' : '';
+
+        html += '<tr class="' + rowClass + '">' +
+          '<td><input type="checkbox" class="revoke-checkbox" ' + checkedAttr + ' onchange="toggleRevoke(\'' + k.id + '\', this.checked)"></td>' +
+          '<td class="key-cell">' +
+            escapeHtml(displayKey) +
+            ' <button class="copy-cell-btn" onclick="copyText(\'' + escapeHtml(displayKey) + '\')" title="Copy">📋</button>' +
+          '</td>' +
+          '<td><span class="status-badge ' + (isRevoked ? 'status-revoked' : 'status-active') + '">' + (k.expires === "Vĩnh viễn" ? "∞" : k.days + "d") + '</span></td>' +
+          '<td><button class="key-del-btn" onclick="deleteKey(\'' + k.id + '\')" title="Xoá key này">✕</button></td>' +
+        '</tr>';
+      });
+
+      html += '</tbody></table></div></div>';
+    });
+
+    container.innerHTML = html;
+  }
+
+  // ─── Toggle HWID Card ──────────────────────────────────────
+  function toggleHwIdCard(cardId) {
+    var body = document.getElementById('body-' + cardId);
+    var header = document.querySelector('#' + cardId + ' .hwid-card-header');
+    if (body && header) {
+      body.classList.toggle('open');
+      header.classList.toggle('expanded');
+    }
+  }
+
+  // ─── Update HWID Note ─────────────────────────────────────
+  var _noteTimers = {};
+
+  function updateNote(hwId, value) {
+    if (_noteTimers[hwId]) clearTimeout(_noteTimers[hwId]);
+    _noteTimers[hwId] = setTimeout(function() {
+      google.script.run
+        .withSuccessHandler(function() {})
+        .withFailureHandler(function(err) {
+          console.error('Lỗi cập nhật note:', err.message);
+        })
+        .updateHwIdNote(hwId, value.trim());
+    }, 600);
+  }
+
+  // ─── Toggle Revoke ─────────────────────────────────────────
+  function toggleRevoke(keyId, shouldRevoke) {
+    var reason = shouldRevoke
+      ? (prompt('Nhập lý do thu hồi (tuỳ chọn):') || 'Admin thu hồi')
+      : '';
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        loadGeneratedKeys();
+        var msg = result.revoked
+          ? '⛔ Đã thu hồi: ' + result.key
+          : '✅ Đã bỏ thu hồi: ' + result.key;
+        showToast(msg, result.revoked);
+      })
+      .withFailureHandler(function(err) {
+        showToast('❌ ' + (err.message || 'Lỗi'), true);
+        loadGeneratedKeys();
+      })
+      .toggleKeyRevoke(keyId, shouldRevoke, reason || '');
+  }
+
+  // ─── Delete single key ─────────────────────────────────────
+  function deleteKey(keyId) {
+    if (!confirm('Xoá key này khỏi danh sách?\nThao tác này không thể hoàn tác.')) return;
+
+    google.script.run
+      .withSuccessHandler(function() {
+        loadGeneratedKeys();
+        showToast('✅ Đã xoá key.', false);
+      })
+      .withFailureHandler(function(err) {
+        showToast('❌ ' + (err.message || 'Lỗi khi xoá'), true);
+      })
+      .deleteKeyEntry(keyId);
+  }
+
+  // ─── Delete all keys for HWID ──────────────────────────────
+  function deleteHwId(hwId) {
+    if (!confirm('Xoá TẤT CẢ key của HWID này?\n' + hwId + '\n\nThao tác không thể hoàn tác!')) return;
+    if (!confirm('Chắc chắn xoá?')) return;
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        loadGeneratedKeys();
+        showToast('✅ Đã xoá ' + result.deleted + ' key(s).', false);
+      })
+      .withFailureHandler(function(err) {
+        showToast('❌ ' + (err.message || 'Lỗi khi xoá'), true);
+      })
+      .deleteKeysForHwId(hwId);
+  }
+
+  // ─── Toast notification ────────────────────────────────────
+  function showToast(msg, isError) {
+    var div = document.getElementById('revokeResult');
+    var msgEl = document.getElementById('revokeResultMsg');
+    if (!div) return;
+    div.style.display = 'block';
+    div.className = 'result' + (isError ? ' error' : '');
+    msgEl.textContent = msg;
+    setTimeout(function() { div.style.display = 'none'; }, 3000);
+  }
+
+  // ─── Copy text helper ──────────────────────────────────────
+  function copyText(text) {
+    navigator.clipboard.writeText(text).catch(function() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
+  }
+
+  // ─── Collapsible manual revoke ─────────────────────────────
+  function toggleManualRevoke() {
+    var body = document.getElementById('manualRevokeBody');
+    var header = document.getElementById('manualRevokeHeader');
+    body.classList.toggle('open');
+    header.classList.toggle('open');
+  }
+
+  // ─── Revoke type radio change ──────────────────────────────
+  function onRevokeTypeChange() {
+    var type = document.querySelector('input[name="revokeType"]:checked').value;
+    document.querySelectorAll('.radio-label').forEach(function(l) {
+      var input = l.querySelector('input');
+      l.setAttribute('data-active', input.checked ? 'true' : 'false');
+    });
+    var label = document.getElementById('revokeValueLabel');
+    var input = document.getElementById('revokeValue');
+    if (type === 'HWID') {
+      label.innerHTML = 'Giá trị HWID <span class="hint">(dán từ License Window)</span>';
+      input.placeholder = 'Nhập Hardware ID...';
+    } else {
+      label.innerHTML = 'Mã kích hoạt <span class="hint">(16 ký tự, có hoặc không dấu gạch)</span>';
+      input.placeholder = 'VD: XXXX-XXXX-XXXX-XXXX';
+    }
+  }
+
+  // ─── Paste revoke value ────────────────────────────────────
+  function pasteRevokeValue() {
+    navigator.clipboard.readText().then(function(text) {
+      if (text) document.getElementById('revokeValue').value = text.trim();
+    }).catch(function() {
+      document.getElementById('revokeValue').focus();
+    });
+  }
+
+  // ─── Add revoke manual ─────────────────────────────────────
+  function addRevoke() {
+    var type = document.querySelector('input[name="revokeType"]:checked').value;
+    var value = document.getElementById('revokeValue').value.trim();
+    var reason = document.getElementById('revokeReason').value.trim();
+
+    if (!value) {
+      showRevokeMessage('Vui lòng nhập giá trị cần thu hồi.', true);
+      return;
+    }
+
+    var btn = document.getElementById('addRevokeBtn');
+    var spinner = document.getElementById('revokeSpinner');
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang thêm...';
+    spinner.style.display = 'block';
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        showRevokeMessage('✅ Đã thêm vào danh sách thu hồi! (Tổng: ' + result.count + ' mục)', false);
+        document.getElementById('revokeValue').value = '';
+        document.getElementById('revokeReason').value = '';
+        btn.disabled = false;
+        btn.textContent = '⛔ THÊM VÀO DANH SÁCH THU HỒI';
+        spinner.style.display = 'none';
+        loadGeneratedKeys();
+      })
+      .withFailureHandler(function(err) {
+        showRevokeMessage('❌ ' + (err.message || 'Lỗi không xác định.'), true);
+        btn.disabled = false;
+        btn.textContent = '⛔ THÊM VÀO DANH SÁCH THU HỒI';
+        spinner.style.display = 'none';
+      })
+      .addRevoke(type, value, reason);
+  }
+
+  // ─── Show revoke message (manual section) ──────────────────
+  function showRevokeMessage(msg, isError) {
+    var div = document.getElementById('revokeResult');
+    var msgEl = document.getElementById('revokeResultMsg');
+    div.style.display = 'block';
+    div.className = 'result' + (isError ? ' error' : '');
+    msgEl.textContent = msg;
+    div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setTimeout(function() { div.style.display = 'none'; }, isError ? 5000 : 3000);
+  }
+
+  // ─── Copy Revoke URL ───────────────────────────────────────
+  function copyRevokeUrl() {
+    // Lấy URL hiện tại và thêm ?action=getRevokeCsv
+    var url = window.location.origin + window.location.pathname + '?action=getRevokeCsv';
+
+    navigator.clipboard.writeText(url).then(function() {
+      alert('📋 Đã copy Revoke URL:\n\n' + url + '\n\nDùng URL này cho RevokeListUrl trong LicenseManager.cs');
+    }).catch(function() {
+      prompt('Copy URL này và dán vào LicenseManager.cs:', url);
+    });
+    return false;
+  }
+
+  // ─── Utility: escape HTML ──────────────────────────────────
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ─── Debug info ────────────────────────────────────────────
+  function showDebug() {
+    var info = [
+      "╔══════════════════════════════════════╗",
+      "║  TPL License Key Generator — Debug   ║",
+      "╠══════════════════════════════════════╣",
+      "║  Base32 Alphabet:                    ║",
+      "║  ABCDEFGHIJKLMNOPQRSTUVWXYZ234567    ║",
+      "║                                      ║",
+      "║  Payload: 10 bytes → 16 ký tự Base32 ║",
+      "║  [0-1] Days (BE)                     ║",
+      "║  [2-5] Short HWID (4 bytes)          ║",
+      "║  [6]   Sequence byte                 ║",
+      "║  [7-9] SHA256 signature (3 bytes)    ║",
+      "║                                      ║",
+      "║  Format: XXXX-XXXX-XXXX-XXXX         ║",
+      "╚══════════════════════════════════════╝"
+    ].join("\n");
+    alert(info);
+    return false;
+  }
+</script>
+
+</body>
+</html>

@@ -123,6 +123,8 @@ namespace TPL
 			["lic_activated"] = "Kích hoạt thành công!\n\nHạn sử dụng mới: {0}",
 			["lic_permanent_label"] = "Vĩnh viễn",
 			["lic_key_error_fmt"] = "Mã kích hoạt không hợp lệ hoặc bị lỗi định dạng: {0}",
+			["lic_revoked_permanent"] = "❌ Bản quyền đã bị thu hồi vĩnh viễn!\nKhông thể kích hoạt lại. Vui lòng liên hệ tác giả.",
+			["lic_revoked_detected"] = "⛔ Bản quyền đã bị thu hồi từ xa.\nVui lòng liên hệ tác giả để được hỗ trợ.",
 		};
 
 		// ─── English ──────────────────────────────────────────────────────────
@@ -214,6 +216,8 @@ namespace TPL
 			["lic_activated"] = "Activation successful!\n\nNew expiration: {0}",
 			["lic_permanent_label"] = "Permanent",
 			["lic_key_error_fmt"] = "Invalid activation key or format error: {0}",
+			["lic_revoked_permanent"] = "❌ License has been permanently revoked!\nCannot be reactivated. Please contact the author.",
+			["lic_revoked_detected"] = "⛔ License has been remotely revoked.\nPlease contact the author for support.",
 		};
 
 		// ─── Chinese (Simplified) 简体中文 ─────────────────────────────────────

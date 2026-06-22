@@ -20,7 +20,12 @@ namespace TPL
 		{
 			txtHwId.Text = _info.HardwareId;
 
-			if (_info.IsHardwareChanged)
+			if (_info.IsPermanentlyRevoked)
+			{
+				lblStatus.Text = L10n.T("lic_revoked_detected");
+				lblStatus.Foreground = new SolidColorBrush(Colors.Red);
+			}
+			else if (_info.IsHardwareChanged)
 			{
 				lblStatus.Text = L10n.T("lic_hw_changed");
 				lblStatus.Foreground = new SolidColorBrush(Colors.Red);

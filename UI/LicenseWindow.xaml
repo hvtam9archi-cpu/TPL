@@ -163,16 +163,12 @@
                                    Foreground="{StaticResource FgBrush}" FontSize="13" FontWeight="SemiBold" 
                                    VerticalAlignment="Center" FontFamily="Segoe UI"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,6,0">
-                        <Button Content="✕" Width="36" Height="28" 
-                                Style="{StaticResource DangerButton}" Padding="0" FontSize="11"
-                                Click="BtnClose_Click" BorderThickness="0"/>
-                    </StackPanel>
-                </Grid>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,6,0"/>
+				</Grid>
             </Border>
 
             <!-- CONTENT -->
-            <StackPanel Grid.Row="1" Margin="20,15,20,20">
+            <StackPanel Grid.Row="1" Margin="15,15,15,20">
                 <TextBlock x:Name="lblStatus" Text="Trạng thái..." 
                            FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold"
                            TextWrapping="Wrap" Margin="0,0,0,20"/>
@@ -197,13 +193,13 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="txtKey" Grid.Column="0" Style="{StaticResource DarkTextBox}" Margin="0,0,10,0" />
-                    <Button Grid.Column="1" Content="Kích Hoạt" Style="{StaticResource AccentButton}" Width="80" Click="BtnActivate_Click" FontSize="11" HorizontalAlignment="Right"/>
+                    <Button Grid.Column="1" Content="Kích Hoạt" Style="{StaticResource AccentButton}" Width="80" Click="BtnActivate_Click" FontSize="11" HorizontalAlignment="Center"/>
                 </Grid>
 
                 <!-- Footer Buttons -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="Đóng" Style="{StaticResource DarkButton}" 
-                            Width="90" Height="34" Click="BtnClose_Click"/>
+                            Width="79" Height="34" Click="BtnClose_Click"/>
                 </StackPanel>
             </StackPanel>
         </Grid>

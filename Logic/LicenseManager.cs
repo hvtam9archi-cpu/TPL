@@ -19,13 +19,15 @@ namespace TPL
 		public DateTime LastRunDate { get; set; }
 		public List<string> AppliedKeys { get; set; } = new List<string>();
 		public bool IsHardwareChanged { get; set; } = false;
+		public bool IsPermanentlyRevoked { get; set; } = false;
 
 		public bool IsValid
 		{
 			get
 			{
+				if (IsPermanentlyRevoked) return false;        // Đã bị thu hồi vĩnh viễn
 				if (IsHardwareChanged) return false;
-				if (DateTime.Now < LastRunDate) return false; // Clock was turned back
+				if (DateTime.Now < LastRunDate) return false;   // Clock was turned back
 				if (DateTime.Now > ExpirationDate && ExpirationDate != DateTime.MaxValue) return false;
 				return true;
 			}
@@ -33,7 +35,7 @@ namespace TPL
 
 		public string Serialize()
 		{
-			return $"{HardwareId};{TrialStartDate.Ticks};{ExpirationDate.Ticks};{LastRunDate.Ticks};{string.Join(",", AppliedKeys)}";
+			return $"{HardwareId};{TrialStartDate.Ticks};{ExpirationDate.Ticks};{LastRunDate.Ticks};{string.Join(",", AppliedKeys)};{IsPermanentlyRevoked}";
 		}
 
 		public static LicenseInfo Deserialize(string data)
@@ -50,6 +52,10 @@ namespace TPL
 			{
 				info.AppliedKeys = new List<string>(parts[4].Split(','));
 			}
+			if (parts.Length > 5 && bool.TryParse(parts[5], out bool permRevoked))
+			{
+				info.IsPermanentlyRevoked = permRevoked;
+			}
 			return info;
 		}
 	}
@@ -59,7 +65,10 @@ namespace TPL
 		private const string SecretKey = "TPL_V1_SECRET_KEY_2026_NEVER_SHARE_THIS_EVER!!"; // 256-bit+
 		private const string RegistryPath = @"Software\TPL\Settings";
 
-		// Thay link Google Sheets (định dạng CSV) của bạn vào đây. Xem hướng dẫn đi kèm.
+		// URL danh sách thu hồi (định dạng CSV).
+		// Mặc định: Google Sheet cũ. Sau khi deploy Apps Script, thay bằng:
+		//   https://script.google.com/macros/s/.../exec?action=getRevokeCsv
+		// Xem hướng dẫn trong thư mục LicenseKeyGenerator/
 		public const string RevokeListUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQINX-Qrie3CV-wo3xMZU7gwkMKcbBORTTQryY8af60V3sxG7_Q1QspoQ3o7GmxJmVTH5Q5_vfOWUr8/pub?gid=198057700&single=true&output=csv";
 
 		// HttpClient singleton — thread-safe, tái sử dụng connection pool
@@ -102,15 +111,59 @@ namespace TPL
 						}
 					}
 
-					if (isRevoked && info.IsValid)
+					if (isRevoked)
 					{
-						info.ExpirationDate = DateTime.MinValue;
-						SaveLicenseInfo(info);
+						// Đánh dấu thu hồi VĨNH VIỄN — flag này KHÔNG BAO GIỜ được xoá,
+						// kể cả khi HWID/key sau đó được gỡ khỏi revoke list từ xa.
+						if (!info.IsPermanentlyRevoked)
+						{
+							info.IsPermanentlyRevoked = true;
+							info.ExpirationDate = DateTime.MinValue;
+							SaveLicenseInfo(info);
+						}
 					}
 				}
 				catch (TaskCanceledException) { /* Timeout hoặc AutoCAD đóng — bỏ qua */ }
 				catch { /* Không có mạng — bỏ qua */ }
 			});
+		}
+
+		/// <summary>
+		/// Kiểm tra revoke đồng bộ — gọi TRỰC TIẾP từ ActivateLicense.
+		/// Dùng WebClient (sync) để tránh deadlock, timeout 5 giây.
+		/// Lớp bảo vệ cuối: dù user xoá registry, key mới vẫn bị chặn
+		/// nếu HWID hoặc key cũ còn trong revoke list từ xa.
+		/// </summary>
+		private static bool CheckRemoteRevokeSync()
+		{
+			if (string.IsNullOrEmpty(RevokeListUrl) || !RevokeListUrl.StartsWith("http"))
+				return false;
+
+			try
+			{
+				string url = RevokeListUrl + (RevokeListUrl.Contains("?") ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
+
+				using var webClient = new WebClient();
+				webClient.Headers.Add("Cache-Control", "no-cache");
+				string data = webClient.DownloadString(url);
+
+				string hwId = GetHardwareId().ToUpper();
+				string cleanData = data.Replace("-", "").Replace(" ", "").ToUpper();
+
+				// Kiểm tra HWID
+				if (cleanData.Contains(hwId)) return true;
+
+				// Kiểm tra tất cả key đã từng dùng
+				var info = GetLicenseInfo();
+				foreach (string key in info.AppliedKeys)
+				{
+					if (!string.IsNullOrEmpty(key) && cleanData.Contains(key.ToUpper()))
+						return true;
+				}
+			}
+			catch { /* Không có mạng hoặc timeout — bỏ qua, dựa vào IsPermanentlyRevoked */ }
+
+			return false;
 		}
 
 		public static string GetHardwareId()
@@ -276,6 +329,26 @@ namespace TPL
 				}
 
 				LicenseInfo info = GetLicenseInfo();
+
+				// Kiểm tra thu hồi vĩnh viễn (local registry flag)
+				if (info.IsPermanentlyRevoked)
+				{
+					message = L10n.T("lic_revoked_permanent");
+					return false;
+				}
+
+				// Kiểm tra revoke từ xa đồng bộ — dù user có xoá registry,
+				// nếu HWID hoặc key cũ còn trong revoke list → chặn kích hoạt
+				if (CheckRemoteRevokeSync())
+				{
+					// Đánh dấu luôn trong registry để lần sau khỏi check lại
+					info.IsPermanentlyRevoked = true;
+					info.ExpirationDate = DateTime.MinValue;
+					SaveLicenseInfo(info);
+
+					message = L10n.T("lic_revoked_permanent");
+					return false;
+				}
 
 				// Kiểm tra key đã được dùng chưa (so sánh theo cleanedKey)
 				if (info.AppliedKeys.Contains(cleanedKey))
