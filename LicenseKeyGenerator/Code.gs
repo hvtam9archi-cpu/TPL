@@ -22,19 +22,153 @@ var CONFIG = {
   BASE32_ALPHABET: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
 };
 
-// ─── DoGet — Web App / CSV endpoint ──────────────────────────
+// ─── Hàm tạo JSON response (dùng chung cho API) ─────────────
+function jsonResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ─── DoGet — Web App / API / CSV endpoint ────────────────────
 function doGet(e) {
-  // Nếu có ?action=getRevokeCsv → trả về CSV cho C# client
-  if (e && e.parameter && e.parameter.action === "getRevokeCsv") {
-    var csv = getRevokeCsv();
-    return ContentService.createTextOutput(csv)
-      .setMimeType(ContentService.MimeType.CSV)
-      .setCharset("UTF-8");
+  // Luôn có params, kể cả khi không có query string
+  var params = (e && e.parameter) || {};
+  var action = (params.action || "").trim().toLowerCase();
+
+  // API: Sinh key (cho bot chat)
+  //   ?action=generateKey&hwid=XXX&days=9999&seq=...
+  if (action === "generatekey") {
+    return handleApiGenerateKey(params);
   }
+
+  // API: Kiểm tra revoke (cho bot chat)
+  //   ?action=checkRevoked&value=XXX&type=HWID
+  if (action === "checkrevoked") {
+    return handleApiCheckRevoked(params);
+  }
+
+  // CSV: danh sách thu hồi cho C# client
+  //   ?action=getRevokeCsv
+  if (action === "getrevokecsv") {
+    return ContentService.createTextOutput(getRevokeCsv())
+      .setMimeType(ContentService.MimeType.CSV);
+  }
+
   // Mặc định: trả về giao diện Web App
   return HtmlService.createHtmlOutputFromFile("Index")
     .setTitle("TPL License Key Generator")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// ─── DoPost — API endpoint cho bot chat (POST) ──────────────
+//  Gửi JSON body: {"action":"generateKey","hwid":"...","days":9999}
+//  Hoặc form-encoded: action=generateKey&hwid=...
+function doPost(e) {
+  var params = {};
+
+  // Xử lý cả JSON body và form-encoded
+  try {
+    if (e && e.postData && e.postData.contents) {
+      var raw = e.postData.contents;
+      // Thử parse JSON trước
+      try {
+        var json = JSON.parse(raw);
+        for (var k in json) params[k] = json[k];
+      } catch (jsonErr) {
+        // Không phải JSON → parse như query string
+        raw.split("&").forEach(function(pair) {
+          var parts = pair.split("=");
+          if (parts.length === 2) {
+            params[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]);
+          }
+        });
+      }
+    }
+  } catch (ex) { /* ignore */ }
+
+  // Fallback: lấy từ parameter nếu có
+  if (e && e.parameter) {
+    for (var k in e.parameter) {
+      if (!params[k]) params[k] = e.parameter[k];
+    }
+  }
+
+  var action = (params.action || "").trim().toLowerCase();
+
+  if (action === "generatekey") {
+    return handleApiGenerateKey(params);
+  }
+  if (action === "checkrevoked") {
+    return handleApiCheckRevoked(params);
+  }
+
+  return jsonResponse({ success: false, error: "Unknown action '" + action + "'." });
+}
+
+// ─── API: Sinh key (JSON, dùng cho bot chat) ─────────────────
+//  GET  ?action=generateKey&hwid=XXX&days=9999&seq=...
+//  POST {"action":"generateKey","hwid":"XXX","days":9999}
+function handleApiGenerateKey(params) {
+  try {
+    var hwid = (params.hwid || "").trim();
+    var days = parseInt(params.days, 10) || 9999;
+    var seq = (params.seq || "").trim();
+
+    if (!hwid) throw new Error("Thiếu tham số 'hwid'.");
+    if (days < 1) throw new Error("'days' phải lớn hơn 0.");
+
+    var g = generateLicenseKey(hwid, days, seq);
+
+    return jsonResponse({
+      success: true,
+      key: g.key,
+      shortHwId: g.shortHwId,
+      days: g.days,
+      expires: g.expires,
+      seq: g.seq,
+      keyId: g.keyId
+    });
+
+  } catch (ex) {
+    return jsonResponse({ success: false, error: ex.message || "Lỗi không xác định." });
+  }
+}
+
+// ─── API: Kiểm tra revoke (JSON, cho bot chat) ───────────────
+//  GET  ?action=checkRevoked&value=XXX&type=HWID
+//  POST {"action":"checkRevoked","value":"XXX","type":"HWID"}
+function handleApiCheckRevoked(params) {
+  try {
+    var value = (params.value || "").trim();
+    var type = ((params.type || "HWID")).toUpperCase();
+
+    if (!value) throw new Error("Thiếu tham số 'value'.");
+
+    var cleaned = value.replace(/-/g, "").replace(/\s/g, "").toUpperCase();
+    var list = getRevokeList();
+    var revoked = false, reason = "", revokeDate = "";
+
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].value === cleaned || list[i].value === value.toUpperCase()) {
+        revoked = true;
+        reason = list[i].reason || "";
+        revokeDate = list[i].revokeDate || "";
+        break;
+      }
+    }
+
+    return jsonResponse({
+      success: true,
+      revoked: revoked,
+      type: type,
+      value: value,
+      reason: reason,
+      revokeDate: revokeDate
+    });
+
+  } catch (ex) {
+    return jsonResponse({ success: false, error: ex.message || "Lỗi không xác định." });
+  }
 }
 
 // ─── Hàm chính để sinh key (gọi từ frontend) ─────────────────

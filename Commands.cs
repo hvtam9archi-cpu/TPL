@@ -18,7 +18,16 @@ namespace TPL
 				Document doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null) return;
 
-				// Kiểm tra bản quyền trước khi mở
+				// Kiểm tra revoke từ xa TRƯỚC — để revoke có hiệu lực ngay lập tức
+				if (LicenseManager.CheckRemoteRevokeSync())
+				{
+					doc.Editor.WriteMessage("\n[TPL] Bản quyền đã bị thu hồi từ xa.\n");
+				}
+
+				// Đồng thời chạy async để cập nhật revoke list trong background
+				LicenseManager.CheckRemoteRevokeAsync();
+
+				// Kiểm tra bản quyền
 				var license = LicenseManager.GetLicenseInfo();
 				if (!license.IsValid)
 				{
@@ -33,7 +42,6 @@ namespace TPL
 				}
 
 				LicenseManager.UpdateLastRunDate(license);
-				LicenseManager.CheckRemoteRevokeAsync();
 
 				if (_mainWindow == null || !_mainWindow.IsLoaded)
 				{

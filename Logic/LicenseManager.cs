@@ -119,8 +119,16 @@ namespace TPL
 						{
 							info.IsPermanentlyRevoked = true;
 							info.ExpirationDate = DateTime.MinValue;
-							SaveLicenseInfo(info);
 						}
+
+						// Dọn dẹp: xoá các key bị thu hồi khỏi AppliedKeys
+						info.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && cleanData.Contains(k.ToUpper()));
+						SaveLicenseInfo(info);
+					}
+					else
+					{
+						// Không có revoke mới → vẫn dọn key cũ/trùng lặp định kỳ
+						CleanupAppliedKeys(info);
 					}
 				}
 				catch (TaskCanceledException) { /* Timeout hoặc AutoCAD đóng — bỏ qua */ }
@@ -133,8 +141,9 @@ namespace TPL
 		/// Dùng WebClient (sync) để tránh deadlock, timeout 5 giây.
 		/// Lớp bảo vệ cuối: dù user xoá registry, key mới vẫn bị chặn
 		/// nếu HWID hoặc key cũ còn trong revoke list từ xa.
+		/// Đồng thời dọn dẹp AppliedKeys nếu phát hiện key bị thu hồi.
 		/// </summary>
-		private static bool CheckRemoteRevokeSync()
+		public static bool CheckRemoteRevokeSync()
 		{
 			if (string.IsNullOrEmpty(RevokeListUrl) || !RevokeListUrl.StartsWith("http"))
 				return false;
@@ -151,19 +160,82 @@ namespace TPL
 				string cleanData = data.Replace("-", "").Replace(" ", "").ToUpper();
 
 				// Kiểm tra HWID
-				if (cleanData.Contains(hwId)) return true;
+				if (cleanData.Contains(hwId))
+				{
+					var info = GetLicenseInfo();
+					// Dọn key bị thu hồi khỏi AppliedKeys
+					info.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && cleanData.Contains(k.ToUpper()));
+					// Đánh dấu thu hồi vĩnh viễn ngay lập tức
+					if (!info.IsPermanentlyRevoked)
+					{
+						info.IsPermanentlyRevoked = true;
+						info.ExpirationDate = DateTime.MinValue;
+					}
+					SaveLicenseInfo(info);
+					return true;
+				}
 
 				// Kiểm tra tất cả key đã từng dùng
-				var info = GetLicenseInfo();
-				foreach (string key in info.AppliedKeys)
+				var info2 = GetLicenseInfo();
+				bool found = false;
+				foreach (string key in info2.AppliedKeys)
 				{
 					if (!string.IsNullOrEmpty(key) && cleanData.Contains(key.ToUpper()))
-						return true;
+					{ found = true; break; }
 				}
+
+				if (found)
+				{
+					// Dọn key bị thu hồi khỏi AppliedKeys
+					info2.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && cleanData.Contains(k.ToUpper()));
+					// Đánh dấu thu hồi vĩnh viễn
+					if (!info2.IsPermanentlyRevoked)
+					{
+						info2.IsPermanentlyRevoked = true;
+						info2.ExpirationDate = DateTime.MinValue;
+					}
+					SaveLicenseInfo(info2);
+				}
+
+				return found;
 			}
 			catch { /* Không có mạng hoặc timeout — bỏ qua, dựa vào IsPermanentlyRevoked */ }
 
 			return false;
+		}
+
+		/// <summary>
+		/// Dọn dẹp AppliedKeys: giới hạn số lượng, xoá trùng lặp.
+		/// AppliedKeys có thể phình to theo thời gian nếu user kích hoạt nhiều lần.
+		/// Mỗi key chiếm 16-20 ký tự trong registry, không đáng kể,
+		/// nhưng kiểm tra revoke sẽ quét toàn bộ danh sách nên cần giới hạn.
+		/// </summary>
+		public static void CleanupAppliedKeys(LicenseInfo info)
+		{
+			if (info == null) return;
+			bool dirty = false;
+
+			// Xoá key rỗng
+			if (info.AppliedKeys.RemoveAll(string.IsNullOrEmpty) > 0) dirty = true;
+
+			// Xoá trùng lặp (giữ bản ghi đầu tiên)
+			var unique = new HashSet<string>();
+			var cleaned = new List<string>();
+			foreach (var key in info.AppliedKeys)
+			{
+				if (unique.Add(key)) cleaned.Add(key);
+			}
+			if (cleaned.Count != info.AppliedKeys.Count) dirty = true;
+			info.AppliedKeys = cleaned;
+
+			// Giới hạn tối đa 100 key gần nhất
+			if (info.AppliedKeys.Count > 100)
+			{
+				info.AppliedKeys = info.AppliedKeys.Skip(info.AppliedKeys.Count - 100).ToList();
+				dirty = true;
+			}
+
+			if (dirty) SaveLicenseInfo(info);
 		}
 
 		public static string GetHardwareId()
@@ -258,6 +330,8 @@ namespace TPL
 			{
 				info.LastRunDate = DateTime.Now;
 				SaveLicenseInfo(info);
+				// Dọn dẹp AppliedKeys định kỳ (mỗi lần chạy)
+				CleanupAppliedKeys(info);
 			}
 		}
 
