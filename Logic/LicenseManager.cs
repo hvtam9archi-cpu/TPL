@@ -67,9 +67,9 @@ namespace TPL
 
 		// URL danh sách thu hồi (định dạng CSV).
 		// Mặc định: Google Sheet cũ. Sau khi deploy Apps Script, thay bằng:
-		//   https://script.google.com/macros/s/.../exec?action=getRevokeCsv
+		//   https://n-xglfnddooltla5jsg6cncwyxw5akfti5ay6ktaa-0lu-script.googleusercontent.com/userCodeAppPanel?action=getRevokeCsv
 		// Xem hướng dẫn trong thư mục LicenseKeyGenerator/
-		public const string RevokeListUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQINX-Qrie3CV-wo3xMZU7gwkMKcbBORTTQryY8af60V3sxG7_Q1QspoQ3o7GmxJmVTH5Q5_vfOWUr8/pub?gid=198057700&single=true&output=csv";
+		public const string RevokeListUrl = "https://n-xglfnddooltla5jsg6cncwyxw5akfti5ay6ktaa-0lu-script.googleusercontent.com/userCodeAppPanel?action=getRevokeCsv";
 
 		// HttpClient singleton — thread-safe, tái sử dụng connection pool
 		private static readonly HttpClient _httpClient = new()
