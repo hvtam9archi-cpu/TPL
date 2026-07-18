@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
-using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.DatabaseServices;
+using Prima.VinaCAD.ApplicationServices;
+using Teigha.DatabaseServices;
 
 namespace TPL
 {

@@ -1,8 +1,8 @@
-using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.EditorInput;
-using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.PlottingServices;
+using Prima.VinaCAD.ApplicationServices;
+using Teigha.DatabaseServices;
+using Prima.VinaCAD.EditorInput;
+using Teigha.Geometry;
+
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
 using System;
@@ -38,6 +38,8 @@ namespace TPL
         /// <summary>Ngưỡng tối thiểu cho chiều rộng/cao của plot frame (đơn vị drawing).
         /// Frame nhỏ hơn giá trị này sẽ bị bỏ qua vì gây treo PlotEngine.</summary>
         private const double MinFrameDimension = 0.001;
+		private static readonly object PdfExportModuleLock = new();
+		private static bool _pdfExportModuleLoaded;
         public static List<PlotFrame> SelectFrames(PlotHelper.PlotSettingsData settings)
         {
             Document doc = Application.DocumentManager.MdiActiveDocument;
@@ -102,7 +104,7 @@ namespace TPL
                 string blockNameFilter = string.Join(",", settings.FrameNames);
                 if (!string.IsNullOrEmpty(blockNameFilter))
                 {
-                    blockNameFilter += ",`*U*"; // backtick escape ký tự * đầu tiên cho AutoCAD wildcard
+                    blockNameFilter += ",`*U*"; // backtick escape ký tự * đầu tiên cho VinaCAD wildcard
                     return new TypedValue[] {
                         new((int)DxfCode.Start, "INSERT"),
                         new((int)DxfCode.BlockName, blockNameFilter)
@@ -340,10 +342,16 @@ namespace TPL
         public static void SortFrames(List<PlotFrame> frames, PlotHelper.PlotSettingsData settings)
         {
             if (settings.GroupOrder == PlotHelper.SortOrder.SelectionOrder || settings.GroupOrder == PlotHelper.SortOrder.None)
+            {
+                AssignFrameOrder(frames);
                 return;
+            }
 
             if (settings.GroupOrder == PlotHelper.SortOrder.MarkedOrder)
+            {
+                AssignFrameOrder(frames);
                 return;
+            }
 
             var ord1 = settings.GroupOrder;
             var ord2 = settings.CrossGroupOrder;
@@ -379,6 +387,48 @@ namespace TPL
                     return 0;
                 }
             });
+
+            AssignFrameOrder(frames);
+        }
+
+        private static void AssignFrameOrder(List<PlotFrame> frames)
+        {
+            for (int i = 0; i < frames.Count; i++)
+            {
+                frames[i].OrderIndex = i + 1;
+                frames[i].MarkerText = (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+
+        /// <summary>
+        /// PlotSettings expects a window in DCS for Model Space. Paper Space already
+        /// uses layout coordinates, so its extents can be passed through unchanged.
+        /// </summary>
+        private static Extents2d GetPlotWindowArea(Editor ed, Extents3d worldExtents, bool modelType)
+        {
+            if (!modelType)
+            {
+                return new Extents2d(
+                    worldExtents.MinPoint.X, worldExtents.MinPoint.Y,
+                    worldExtents.MaxPoint.X, worldExtents.MaxPoint.Y);
+            }
+
+            using ViewTableRecord view = ed.GetCurrentView();
+            Matrix3d worldToDisplay = Matrix3d.WorldToPlane(view.ViewDirection)
+                * Matrix3d.Displacement(Point3d.Origin - view.Target)
+                * Matrix3d.Rotation(view.ViewTwist, view.ViewDirection, view.Target);
+
+            Point3d[] corners =
+            {
+                new Point3d(worldExtents.MinPoint.X, worldExtents.MinPoint.Y, 0).TransformBy(worldToDisplay),
+                new Point3d(worldExtents.MaxPoint.X, worldExtents.MinPoint.Y, 0).TransformBy(worldToDisplay),
+                new Point3d(worldExtents.MaxPoint.X, worldExtents.MaxPoint.Y, 0).TransformBy(worldToDisplay),
+                new Point3d(worldExtents.MinPoint.X, worldExtents.MaxPoint.Y, 0).TransformBy(worldToDisplay)
+            };
+
+            return new Extents2d(
+                corners.Min(point => point.X), corners.Min(point => point.Y),
+                corners.Max(point => point.X), corners.Max(point => point.Y));
         }
 
         public static void PlotAll(List<PlotFrame> frames, PlotHelper.PlotSettingsData settings)
@@ -408,7 +458,7 @@ namespace TPL
 
             string baseName = settings.BaseFileName;
             if (string.IsNullOrWhiteSpace(baseName)) baseName = "Drawing1";
-            string ext = ".plt";
+            string ext = ".pdf";
             string outDir = "";
 
             // Chỉ chuẩn bị file output nếu là máy in file
@@ -420,109 +470,11 @@ namespace TPL
                 if (!Directory.Exists(outDir)) Directory.CreateDirectory(outDir);
             }
 
-            // Phase 1: pre-collect all layout/plot data inside ONE transaction
-            // PlotEngine must NEVER run while a transaction is active.
-            var plotJobs = new List<(string LayoutName, ObjectId LayoutId, bool ModelType, PlotSettings Ps, Extents3d Extents)>();
-            try
-            {
-                using Transaction tr = db.TransactionManager.StartTransaction();
-                foreach (var frame in frames)
-                {
-                    ObjectId layId = LayoutManager.Current.GetLayoutId(frame.LayoutName);
-                    Layout lay = (Layout)tr.GetObject(layId, OpenMode.ForRead);
-                    PlotSettings ps = new(lay.ModelType);
-                    ps.CopyFrom(lay);
-                    PlotSettingsValidator psv = PlotSettingsValidator.Current;
+            var generatedFiles = new List<string>();
+            int errorCount = 0;
+            int fileCounter = 1;
 
-                    // 1. Set Device and Paper Size FIRST
-                    try { psv.SetPlotConfigurationName(ps, settings.DeviceName, settings.PaperSize.Replace(" ", "_")); } catch { }
-
-                    // 2. Set PlotWindowArea (dummy or real) BEFORE PlotType
-                    Extents2d plotExt;
-                    if (lay.ModelType)
-                    {
-                        using ViewTableRecord vtr = ed.GetCurrentView();
-                        Matrix3d matWCS2DCS = Matrix3d.WorldToPlane(vtr.ViewDirection) *
-                                              Matrix3d.Displacement(Point3d.Origin - vtr.Target) *
-                                              Matrix3d.Rotation(vtr.ViewTwist, vtr.ViewDirection, vtr.Target);
-
-                        Point3d p1 = new Point3d(frame.Extents.MinPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
-                        Point3d p2 = new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
-                        Point3d p3 = new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MaxPoint.Y, 0).TransformBy(matWCS2DCS);
-                        Point3d p4 = new Point3d(frame.Extents.MinPoint.X, frame.Extents.MaxPoint.Y, 0).TransformBy(matWCS2DCS);
-
-                        double minX = Math.Min(Math.Min(p1.X, p2.X), Math.Min(p3.X, p4.X));
-                        double minY = Math.Min(Math.Min(p1.Y, p2.Y), Math.Min(p3.Y, p4.Y));
-                        double maxX = Math.Max(Math.Max(p1.X, p2.X), Math.Max(p3.X, p4.X));
-                        double maxY = Math.Max(Math.Max(p1.Y, p2.Y), Math.Max(p3.Y, p4.Y));
-
-                        plotExt = new Extents2d(minX, minY, maxX, maxY);
-                    }
-                    else
-                    {
-                        plotExt = new Extents2d(frame.Extents.MinPoint.X, frame.Extents.MinPoint.Y, frame.Extents.MaxPoint.X, frame.Extents.MaxPoint.Y);
-                    }
-                    psv.SetPlotWindowArea(ps, plotExt);
-
-                    // 3. Set PlotType
-                    psv.SetPlotType(ps, Autodesk.AutoCAD.DatabaseServices.PlotType.Window);
-
-                    // 4. Set PlotWindowArea AGAIN to ensure it isn't reset by PlotType
-                    psv.SetPlotWindowArea(ps, plotExt);
-
-                    try { psv.SetCurrentStyleSheet(ps, settings.PlotStyle); } catch { }
-
-                    psv.SetUseStandardScale(ps, true);
-                    psv.SetStdScaleType(ps, StdScaleType.ScaleToFit);
-                    psv.SetPlotCentered(ps, true);
-
-                    // CRITICAL: Force standard rendering to avoid blank PDFs from custom visual styles
-                    ps.PrintLineweights = true;
-                    ps.PlotPlotStyles = true;
-                    ps.DrawViewportsFirst = true;
-                    ps.PlotHidden = false;
-
-                    double lenX = frame.Extents.MaxPoint.X - frame.Extents.MinPoint.X;
-                    double lenY = frame.Extents.MaxPoint.Y - frame.Extents.MinPoint.Y;
-                    bool frameIsLandscape = lenX > lenY;
-
-                    // Nhận biết hướng của giấy được thiết lập trong PlotSettings (sau khi chọn máy in & khổ giấy)
-                    bool paperIsLandscape = true; // mặc định/fallback
-                    if (ps.PlotPaperSize.X > 0 && ps.PlotPaperSize.Y > 0)
-                    {
-                        paperIsLandscape = ps.PlotPaperSize.X > ps.PlotPaperSize.Y;
-                    }
-
-                    // Xác định hướng mong muốn dựa trên cấu hình UI (Auto, Portrait, Landscape)
-                    bool targetIsLandscape = frameIsLandscape;
-                    if (settings.Orientation == PlotHelper.PlotOrientation.Portrait)
-                    {
-                        targetIsLandscape = false;
-                    }
-                    else if (settings.Orientation == PlotHelper.PlotOrientation.Landscape)
-                    {
-                        targetIsLandscape = true;
-                    }
-
-                    // Nếu hướng mong muốn khác hướng của giấy thiết lập, xoay 90 độ
-                    PlotRotation rotation = (targetIsLandscape == paperIsLandscape) ? PlotRotation.Degrees000 : PlotRotation.Degrees090;
-                    psv.SetPlotRotation(ps, rotation);
-
-                    plotJobs.Add((frame.LayoutName, layId, lay.ModelType, ps, frame.Extents));
-                }
-                tr.Commit();
-            }
-            catch (System.Exception ex)
-            {
-                ed.WriteMessage($"\nPlot data error: {ex.Message}");
-                return;
-            }
-
-            // Phase 2: PlotEngine + Regen with NO active transaction
-            short bgPlot = (short)Application.GetSystemVariable("BACKGROUNDPLOT");
-            Application.SetSystemVariable("BACKGROUNDPLOT", 0);
-
-            var progressWin = new ProgressWindow(L10n.T("prog_title"), plotJobs.Count);
+            var progressWin = new ProgressWindow(L10n.T("prog_title"), frames.Count);
             try
             {
                 var acWin = Application.MainWindow;
@@ -537,250 +489,492 @@ namespace TPL
             catch { }
             progressWin.Show();
 
-            var generatedFiles = new List<string>();
-            int errorCount = 0;
             try
             {
-                int fileCounter = 1;
-                for (int i = 0; i < plotJobs.Count; i++)
+                if (isFilePrinter)
                 {
-                    var (LayoutName, LayoutId, ModelType, Ps, Extents) = plotJobs[i];
-                    try
-                    {
-                        // ═══ SAFETY CHECK: validate extents trước khi gửi vào PlotEngine ═══
-                        double extW = Math.Abs(Extents.MaxPoint.X - Extents.MinPoint.X);
-                        double extH = Math.Abs(Extents.MaxPoint.Y - Extents.MinPoint.Y);
-                        if (extW < MinFrameDimension || extH < MinFrameDimension)
-                        {
-                            ed.WriteMessage($"\n[TPL] Skipped page {i + 1}: Frame has no area (W={extW:F4}, H={extH:F4}).");
-                            errorCount++;
-                            continue;
-                        }
-
-                        string filePath = "";
-                        string fileName = "";
-
-                        // Chỉ tạo file path nếu là máy in file
-                        if (isFilePrinter)
-                        {
-                            do
-                            {
-                                fileName = $"{baseName}_{fileCounter:D2}{ext}";
-                                filePath = Path.Combine(outDir, fileName);
-                                fileCounter++;
-                            } while (File.Exists(filePath));
-                        }
-                        else
-                        {
-                            fileName = $"Page {i + 1}/{plotJobs.Count}";
-                        }
-
-                        string subLabel = isFilePrinter
-                            ? string.Format(L10n.T("prog_file"), fileName)
-                            : $"Printing: {fileName} → {settings.DeviceName}";
-                        progressWin.UpdateProgress(i, string.Format(L10n.T("prog_progress"), i + 1, plotJobs.Count), subLabel);
-
-                        // Layout switch
-                        LayoutManager.Current.CurrentLayout = LayoutName;
-                        ed.UpdateScreen();
-
-                        if (PlotFactory.ProcessPlotState != ProcessPlotState.NotPlotting)
-                        {
-                            ed.WriteMessage($"\n[TPL] Skipped page {i + 1}: PlotEngine busy.");
-                            errorCount++;
-                            continue;
-                        }
-
-                        {
-						    // ═══ Unified Plot Engine (Silent Plotting) ═══
-						    using var pe = PlotFactory.CreatePublishEngine();
-						    pe.BeginPlot(null, null);
-
-						    var pi = new PlotInfo { Layout = LayoutId, OverrideSettings = Ps };
-						    var piv = new PlotInfoValidator { MediaMatchingPolicy = MatchingPolicy.MatchEnabled };
-						    piv.Validate(pi);
-
-						    pe.BeginDocument(pi, doc.Name, null, 1, isFilePrinter, isFilePrinter ? filePath : "");
-						    pe.BeginPage(new PlotPageInfo(), pi, true, null);
-						    pe.BeginGenerateGraphics(null);
-						    pe.EndGenerateGraphics(null);
-						    pe.EndPage(null);
-						    pe.EndDocument(null);
-						    pe.EndPlot(null);
-						    if (isFilePrinter) generatedFiles.Add(filePath);
-						}
-                    }
-                    catch (System.Exception plotEx)
-                    {
-                        // ═══ CRASH-PROOF: bắt lỗi từng trang, không crash toàn batch ═══
-                        errorCount++;
-                        ed.WriteMessage($"\n[TPL] ERROR page {i + 1}: {plotEx.GetType().Name}: {plotEx.Message}");
-                    }
-                    finally
-                    {
-                        Ps.Dispose();
-                    }
+                    // ═══ PDF Export via Teigha.Export_Import API ═══
+                    PlotAllWithExportPdf(frames, settings, db, ed, baseName, ext, outDir,
+                        generatedFiles, ref errorCount, ref fileCounter, progressWin);
+                }
+                else
+                {
+                    // ═══ Máy in vật lý: fallback qua SendStringToExecute ═══
+                    PlotAllWithSendString(frames, settings, doc, ed, ref errorCount, progressWin);
                 }
 
                 // Thông báo tổng kết lỗi
                 if (errorCount > 0)
                 {
-                    ed.WriteMessage($"\n[TPL] Completed with {errorCount} error(s) out of {plotJobs.Count} page(s).");
+                    ed.WriteMessage($"\n[TPL] Completed with {errorCount} error(s) out of {frames.Count} page(s).");
                 }
 
-                progressWin.UpdateProgress(plotJobs.Count, string.Format(L10n.T("prog_progress"), plotJobs.Count, plotJobs.Count), "");
+                progressWin.UpdateProgress(frames.Count, string.Format(L10n.T("prog_progress"), frames.Count, frames.Count), "");
 
                 // ═══ POST-PROCESSING (chỉ áp dụng cho máy in file) ═══
                 if (isFilePrinter)
                 {
-                    // Phase 2: Post-processing Orientation
-                    if (settings.Orientation != PlotHelper.PlotOrientation.Auto && generatedFiles.Count > 0)
-                    {
-                        progressWin.SetSubTitle("Applying Orientation...");
-                        foreach (string pdfFile in generatedFiles)
-                        {
-                            if (!pdfFile.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) continue;
-                            try
-                            {
-                                using var docPdf = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify);
-                                bool modified = false;
-                                foreach (var page in docPdf.Pages)
-                                {
-                                    // Use raw MediaBox to avoid any PdfSharp version differences in page.Width
-                                    double rawWidth = page.MediaBox.Width;
-                                    double rawHeight = page.MediaBox.Height;
-
-                                    // Calculate visual dimensions based on current Rotate
-                                    int currentRotate = page.Rotate;
-                                    bool isRotated = (Math.Abs(currentRotate) / 90) % 2 != 0;
-
-                                    double visualWidth = isRotated ? rawHeight : rawWidth;
-                                    double visualHeight = isRotated ? rawWidth : rawHeight;
-
-                                    if (settings.Orientation == PlotHelper.PlotOrientation.Portrait && visualWidth > visualHeight)
-                                    {
-                                        page.Rotate = (currentRotate + 90) % 360; // 90 deg CW
-                                        modified = true;
-                                    }
-                                    else if (settings.Orientation == PlotHelper.PlotOrientation.Landscape && visualHeight > visualWidth)
-                                    {
-                                        page.Rotate = (currentRotate + 270) % 360; // 90 deg CCW
-                                        modified = true;
-                                    }
-                                }
-                                if (modified) docPdf.Save(pdfFile);
-                            }
-                            catch (System.Exception ex)
-                            {
-                                ed.WriteMessage($"\nOrientation error on {pdfFile}: {ex.Message}");
-                            }
-                        }
-                    }
-
-                    string finalPath = generatedFiles.Count > 0 ? generatedFiles[0] : null;
-                    if (settings.MergePdfs && generatedFiles.Count > 1
-                        && generatedFiles.All(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)))
-                    {
-                        try
-                        {
-                            progressWin.SetSubTitle(L10n.T("prog_merging"));
-                            string mergedPath = Path.Combine(outDir, $"{baseName}.pdf");
-                            if (File.Exists(mergedPath)) File.Delete(mergedPath);
-                            using (var outDoc = new PdfDocument())
-                            {
-                                foreach (string f in generatedFiles)
-                                    using (var inDoc = PdfReader.Open(f, PdfDocumentOpenMode.Import))
-                                        for (int p = 0; p < inDoc.PageCount; p++)
-                                            outDoc.AddPage(inDoc.Pages[p]);
-                                outDoc.Save(mergedPath);
-                            }
-                            foreach (string f in generatedFiles) { try { File.Delete(f); } catch { } }
-                            ed.WriteMessage($"\nMerge OK: {mergedPath}");
-                            finalPath = mergedPath;
-                        }
-                        catch (System.Exception ex) { ed.WriteMessage($"\nMerge error: {ex.Message}"); }
-                    }
-                    else if (settings.ConvertToImage && generatedFiles.All(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)))
-                    {
-                        try
-                        {
-                            progressWin.SetSubTitle("Converting to Image...");
-                            List<string> imageFiles = new();
-                            for (int i = 0; i < generatedFiles.Count; i++)
-                            {
-                                string pdfFile = generatedFiles[i];
-                                string imgExt = settings.ImageFormat.ToLower();
-                                string imgPath = Path.ChangeExtension(pdfFile, imgExt);
-
-                                using (var docPdf = PdfiumViewer.PdfDocument.Load(pdfFile))
-                                {
-                                    // Auto-calculate size from DPI
-                                    var size = docPdf.PageSizes[0];
-                                    int width = (int)(size.Width * settings.ImageDpi / 72.0);
-                                    int height = (int)(size.Height * settings.ImageDpi / 72.0);
-
-                                    using var image = docPdf.Render(0, width, height, settings.ImageDpi, settings.ImageDpi, PdfiumViewer.PdfRenderFlags.Annotations);
-                                    if (settings.ImageFormat == "JPG")
-                                        image.Save(imgPath, System.Drawing.Imaging.ImageFormat.Jpeg);
-                                    else
-                                        image.Save(imgPath, System.Drawing.Imaging.ImageFormat.Png);
-                                }
-                                imageFiles.Add(imgPath);
-                                try { File.Delete(pdfFile); } catch { }
-                            }
-
-                            ed.WriteMessage($"\nConvert Image OK: {imageFiles.Count} files.");
-                            if (imageFiles.Count > 0) finalPath = imageFiles[0];
-                        }
-                        catch (System.Exception ex) { ed.WriteMessage($"\nConvert Image error: {ex.Message}"); }
-                    }
-                    else if (settings.PdfEditor && generatedFiles.Count > 0 && generatedFiles.All(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)))
-                    {
-                        try
-                        {
-                            var editor = PdfEditorWindow.Instance;
-                            editor.SetDefaultFileName(baseName);
-                            editor.AddPdfFiles(generatedFiles);
-
-                            Commands.MainFormInstance?.Hide();
-
-                            try
-                            {
-                                var acWin = Application.MainWindow;
-                                if (acWin != null)
-                                {
-                                    var helper = new System.Windows.Interop.WindowInteropHelper(editor)
-                                    {
-                                        Owner = acWin.Handle
-                                    };
-                                }
-                            }
-                            catch { }
-
-                            if (!editor.IsVisible)
-                                Application.ShowModelessWindow(editor);
-                            else
-                                editor.Activate();
-                        }
-                        catch (System.Exception ex) { ed.WriteMessage($"\nPDF Editor error: {ex.Message}"); }
-                    }
-
-                    progressWin.Close();
-                    if (settings.OpenPdf && finalPath != null && File.Exists(finalPath))
-                        try { System.Diagnostics.Process.Start(finalPath); } catch { }
+                    PostProcessFiles(frames, settings, ed, generatedFiles, baseName, outDir, progressWin);
                 }
                 else
                 {
                     // Máy in vật lý: chỉ đóng progress, không post-process
                     progressWin.Close();
-                    ed.WriteMessage($"\nTPL: Sent {plotJobs.Count} page(s) to printer [{settings.DeviceName}].");
+                    ed.WriteMessage($"\nTPL: Sent {frames.Count} page(s) to printer [{settings.DeviceName}].");
                 }
             }
             finally
             {
                 try { progressWin.Close(); } catch { }
-                Application.SetSystemVariable("BACKGROUNDPLOT", bgPlot);
             }
         }
+
+        /// <summary>
+        /// Xuất PDF cho từng frame sử dụng Teigha.Export_Import.ExportPDF API.
+        /// Mỗi frame được export riêng bằng cách cấu hình PlotSettings trên Layout
+        /// với PlotType = Window, sau đó gọi ExportPDF.
+        /// </summary>
+        private static void PlotAllWithExportPdf(
+            List<PlotFrame> frames,
+            PlotHelper.PlotSettingsData settings,
+            Database db,
+            Editor ed,
+            string baseName,
+            string ext,
+            string outDir,
+            List<string> generatedFiles,
+            ref int errorCount,
+            ref int fileCounter,
+            ProgressWindow progressWin)
+        {
+			EnsurePdfExportModuleLoaded();
+
+            for (int i = 0; i < frames.Count; i++)
+            {
+                var frame = frames[i];
+				string stage = "validating frame";
+                try
+                {
+                    // ═══ SAFETY CHECK: validate extents ═══
+                    double extW = Math.Abs(frame.Extents.MaxPoint.X - frame.Extents.MinPoint.X);
+                    double extH = Math.Abs(frame.Extents.MaxPoint.Y - frame.Extents.MinPoint.Y);
+                    if (extW < MinFrameDimension || extH < MinFrameDimension)
+                    {
+                        ed.WriteMessage($"\n[TPL] Skipped page {i + 1}: Frame has no area (W={extW:F4}, H={extH:F4}).");
+                        errorCount++;
+                        continue;
+                    }
+
+                    string fileName;
+                    string filePath;
+                    do
+                    {
+                        fileName = $"{baseName}_{fileCounter:D2}{ext}";
+                        filePath = Path.Combine(outDir, fileName);
+                        fileCounter++;
+                    } while (File.Exists(filePath));
+
+                    string subLabel = string.Format(L10n.T("prog_file"), fileName);
+                    progressWin.UpdateProgress(i, string.Format(L10n.T("prog_progress"), i + 1, frames.Count), subLabel);
+
+					stage = "switching layout";
+                    LayoutManager.Current.CurrentLayout = frame.LayoutName;
+					ed.UpdateScreen();
+
+					double paperWidth = 0;
+					double paperHeight = 0;
+					Extents2d windowArea = default;
+
+                    using (var tr = db.TransactionManager.StartTransaction())
+                    {
+                        // Lấy Layout hiện tại
+                        var layoutMgr = LayoutManager.Current;
+                        var btRecord = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForRead);
+                        var layout = (Layout)tr.GetObject(btRecord.LayoutId, OpenMode.ForWrite);
+
+                        // Cấu hình PlotSettings trên Layout cho vùng Window
+                        var psv = PlotSettingsValidator.Current;
+						stage = "setting plot device";
+                        psv.SetPlotConfigurationName(layout, settings.DeviceName, null);
+                        psv.RefreshLists(layout);
+
+						// Resolve the exact canonical media name returned by this device. The UI
+						// displays underscores as spaces, so blindly reversing the text is unsafe.
+						stage = "setting canonical media";
+						string canonicalMedia = psv.GetCanonicalMediaNameList(layout)
+							.Cast<string>()
+							.FirstOrDefault(name => string.Equals(
+								name.Replace("_", " "), settings.PaperSize,
+								StringComparison.OrdinalIgnoreCase));
+						if (string.IsNullOrEmpty(canonicalMedia))
+							throw new InvalidOperationException($"Paper size is unavailable for device: {settings.PaperSize}");
+						psv.SetCanonicalMediaName(layout, canonicalMedia);
+
+						// Model Space requires DCS coordinates; Paper Space uses layout coordinates.
+						windowArea = GetPlotWindowArea(ed, frame.Extents, layout.ModelType);
+						stage = "setting plot window";
+						// VinaCAD/Teigha requires a valid window before switching to Window mode.
+						psv.SetPlotWindowArea(layout, windowArea);
+						psv.SetPlotType(layout, Teigha.DatabaseServices.PlotType.Window);
+                        psv.SetPlotWindowArea(layout, windowArea);
+
+                        // Scale to Fit + Center
+						stage = "setting plot scale";
+                        psv.SetUseStandardScale(layout, true);
+                        psv.SetStdScaleType(layout, StdScaleType.ScaleToFit);
+                        psv.SetPlotCentered(layout, true);
+
+                        // Paper units = Millimeters
+                        psv.SetPlotPaperUnits(layout, PlotPaperUnit.Millimeters);
+
+                        // Orientation
+                        if (settings.Orientation == PlotHelper.PlotOrientation.Portrait)
+                            psv.SetPlotRotation(layout, PlotRotation.Degrees000);
+                        else if (settings.Orientation == PlotHelper.PlotOrientation.Landscape)
+                            psv.SetPlotRotation(layout, PlotRotation.Degrees090);
+
+                        // Plot styles
+                        if (!string.IsNullOrEmpty(settings.PlotStyle))
+                        {
+                            try { psv.SetCurrentStyleSheet(layout, settings.PlotStyle); }
+                            catch { }
+                        }
+
+                        layout.PrintLineweights = true;
+                        layout.PlotPlotStyles = true;
+
+						paperWidth = layout.PlotPaperSize.X;
+						paperHeight = layout.PlotPaperSize.Y;
+						if (paperWidth <= 0 || paperHeight <= 0)
+							throw new InvalidOperationException($"Invalid plot paper dimensions: {paperWidth} x {paperHeight}");
+
+						stage = "committing plot settings";
+                        tr.Commit();
+                    }
+
+					stage = "constructing PDF export parameters";
+                    using (var pdfParams = new Teigha.Export_Import.mPDFExportParams())
+                    {
+						stage = "assigning PDF database";
+                        pdfParams.Database = db;
+
+                        // Chỉ export layout hiện tại
+                        var layouts = new System.Collections.Specialized.StringCollection();
+                        layouts.Add(frame.LayoutName);
+						stage = "assigning PDF layouts";
+                        pdfParams.Layouts = layouts;
+
+						// VinaCAD's PDF exporter requires one PageParams entry for every
+						// layout. Leaving this collection empty raises error 65543:
+						// "Number of Layouts are not equal to number of pages".
+						stage = "creating PDF page parameters";
+						var pageParams = new Teigha.GraphicsSystem.PageParams();
+						pageParams.setParams(paperWidth, paperHeight);
+						var pages = new Teigha.GraphicsSystem.PageParamsCollection();
+						pages.Add(pageParams);
+						pdfParams.PageParams = pages;
+
+						stage = "assigning PDF metadata";
+                        pdfParams.Title = baseName;
+                        pdfParams.Author = "TPL Plugin";
+
+						// Default contains ZoomToExtentsMode, which overrides PlotType.Window
+						// and PlotWindowArea. Remove only that flag so ExportPDF uses the
+						// PlotSettings stored on this layout.
+						stage = "assigning PDF flags";
+						var exportFlags = Teigha.Export_Import.PDFExportFlags.Default
+							| Teigha.Export_Import.PDFExportFlags.EnableLayers;
+						exportFlags &= ~Teigha.Export_Import.PDFExportFlags.ZoomToExtentsMode;
+						pdfParams.Flags = exportFlags;
+
+						stage = "assigning PDF compression";
+                        pdfParams.FlateCompression = true;
+                        pdfParams.EmbeddedOptimizedTTF = true;
+
+                        // Output stream = file
+						stage = "opening PDF output stream";
+						using (var stream = new Teigha.Runtime.FileStreamBuf(
+							filePath,
+							openForRead: false,
+							Teigha.Runtime.FileShareMode.DenyReadWrite,
+							Teigha.Runtime.FileCreationDisposition.CreateAlways))
+                        {
+							stage = "assigning PDF output stream";
+                            pdfParams.OutputStream = stream;
+
+							stage = "exporting PDF";
+                            Teigha.Export_Import.Export_Import.ExportPDF(pdfParams);
+                        }
+                    }
+
+                    if (File.Exists(filePath) && new FileInfo(filePath).Length > 0)
+                    {
+                        generatedFiles.Add(filePath);
+                        ed.WriteMessage($"\n[TPL] Page {i + 1}/{frames.Count}: {fileName}");
+                    }
+                    else
+                    {
+                        ed.WriteMessage($"\n[TPL] WARNING: Page {i + 1} exported but file is empty or missing: {fileName}");
+                        errorCount++;
+                    }
+                }
+                catch (System.Exception plotEx)
+                {
+                    errorCount++;
+					ed.WriteMessage(
+						$"\n[TPL] ERROR page {i + 1} at {stage}: {plotEx.GetType().Name}: {plotEx.Message}" +
+						$" [Device={settings.DeviceName}; Paper={settings.PaperSize}]");
+                }
+            }
+        }
+
+		/// <summary>
+		/// The managed PDF wrapper does not initialize its native implementation.
+		/// Load the matching Teigha TX module from the host installation once.
+		/// </summary>
+		private static void EnsurePdfExportModuleLoaded()
+		{
+			if (_pdfExportModuleLoaded) return;
+
+			lock (PdfExportModuleLock)
+			{
+				if (_pdfExportModuleLoaded) return;
+
+				string teighaFolder = Path.GetDirectoryName(typeof(Teigha.Runtime.SystemObjects).Assembly.Location);
+				string modulePath = Directory
+					.GetFiles(teighaFolder, "TD_PdfExport_*.tx", SearchOption.TopDirectoryOnly)
+					.OrderByDescending(path => path, StringComparer.OrdinalIgnoreCase)
+					.FirstOrDefault();
+
+				if (string.IsNullOrEmpty(modulePath))
+					throw new FileNotFoundException("Teigha PDF export module was not found.", teighaFolder);
+
+				var dynamicLinker = Teigha.Runtime.SystemObjects.DynamicLinker;
+				string moduleName = Path.GetFileName(modulePath);
+				if (!dynamicLinker.IsModuleLoaded(moduleName) && !dynamicLinker.IsModuleLoaded(modulePath))
+				{
+					var module = dynamicLinker.LoadModule(modulePath, false, true);
+					if (module == null)
+						throw new InvalidOperationException($"VinaCAD could not load PDF export module: {moduleName}");
+				}
+
+				_pdfExportModuleLoaded = true;
+			}
+		}
+
+        /// <summary>
+        /// Fallback cho máy in vật lý: gửi lệnh PLOT qua SendStringToExecute.
+        /// </summary>
+        private static void PlotAllWithSendString(
+            List<PlotFrame> frames,
+            PlotHelper.PlotSettingsData settings,
+            Document doc,
+            Editor ed,
+            ref int errorCount,
+            ProgressWindow progressWin)
+        {
+            for (int i = 0; i < frames.Count; i++)
+            {
+                var frame = frames[i];
+                try
+                {
+                    string subLabel = $"Printing: Page {i + 1}/{frames.Count} → {settings.DeviceName}";
+                    progressWin.UpdateProgress(i, string.Format(L10n.T("prog_progress"), i + 1, frames.Count), subLabel);
+
+                    LayoutManager.Current.CurrentLayout = frame.LayoutName;
+                    ed.UpdateScreen();
+
+                    // Gửi lệnh PLOT qua SendStringToExecute
+                    string cmdString = $"(command \"_-PLOT\" \"Yes\" \"{frame.LayoutName}\" \"{settings.DeviceName}\" " +
+                        $"\"{settings.PaperSize.Replace(" ", "_")}\" \"Millimeters\" " +
+                        $"\"{(settings.Orientation == PlotHelper.PlotOrientation.Portrait ? "Portrait" : "Landscape")}\" " +
+                        $"\"No\" \"Window\" " +
+                        $"\"{frame.Extents.MinPoint.X},{frame.Extents.MinPoint.Y}\" " +
+                        $"\"{frame.Extents.MaxPoint.X},{frame.Extents.MaxPoint.Y}\" " +
+                        $"\"Fit\" \"Center\" \"Yes\" \"{settings.PlotStyle}\" " +
+                        $"\"Yes\" \"No\" \"Yes\" \"No\" \"No\" \"No\" \"Yes\")\n";
+
+                    doc.SendStringToExecute(cmdString, true, false, true);
+                }
+                catch (System.Exception plotEx)
+                {
+                    errorCount++;
+                    ed.WriteMessage($"\n[TPL] ERROR page {i + 1}: {plotEx.GetType().Name}: {plotEx.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Post-processing: Orientation, Merge PDFs, Convert to Image, PDF Editor.
+        /// </summary>
+        private static void PostProcessFiles(
+            List<PlotFrame> frames,
+            PlotHelper.PlotSettingsData settings,
+            Editor ed,
+            List<string> generatedFiles,
+            string baseName,
+            string outDir,
+            ProgressWindow progressWin)
+        {
+            // Phase 2: Post-processing Orientation
+            if (settings.Orientation != PlotHelper.PlotOrientation.Auto && generatedFiles.Count > 0)
+            {
+                progressWin.SetSubTitle("Applying Orientation...");
+                foreach (string pdfFile in generatedFiles)
+                {
+                    if (!pdfFile.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) continue;
+                    try
+                    {
+                        using var docPdf = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify);
+                        bool modified = false;
+                        foreach (var page in docPdf.Pages)
+                        {
+                            // Use raw MediaBox to avoid any PdfSharp version differences in page.Width
+                            double rawWidth = page.MediaBox.Width;
+                            double rawHeight = page.MediaBox.Height;
+
+                            // Calculate visual dimensions based on current Rotate
+                            int currentRotate = page.Rotate;
+                            bool isRotated = (Math.Abs(currentRotate) / 90) % 2 != 0;
+
+                            double visualWidth = isRotated ? rawHeight : rawWidth;
+                            double visualHeight = isRotated ? rawWidth : rawHeight;
+
+                            if (settings.Orientation == PlotHelper.PlotOrientation.Portrait && visualWidth > visualHeight)
+                            {
+                                page.Rotate = (currentRotate + 90) % 360; // 90 deg CW
+                                modified = true;
+                            }
+                            else if (settings.Orientation == PlotHelper.PlotOrientation.Landscape && visualHeight > visualWidth)
+                            {
+                                page.Rotate = (currentRotate + 270) % 360; // 90 deg CCW
+                                modified = true;
+                            }
+                        }
+                        if (modified) docPdf.Save(pdfFile);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        ed.WriteMessage($"\nOrientation error on {pdfFile}: {ex.Message}");
+                    }
+                }
+            }
+
+            string finalPath = generatedFiles.Count > 0 ? generatedFiles[0] : null;
+            if (settings.MergePdfs && generatedFiles.Count > 1
+                && generatedFiles.All(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)))
+            {
+                try
+                {
+                    progressWin.SetSubTitle(L10n.T("prog_merging"));
+                    string mergedPath = Path.Combine(outDir, $"{baseName}.pdf");
+                    if (File.Exists(mergedPath)) File.Delete(mergedPath);
+                    using (var outDoc = new PdfDocument())
+                    {
+                        foreach (string f in generatedFiles)
+                            using (var inDoc = PdfReader.Open(f, PdfDocumentOpenMode.Import))
+                                for (int p = 0; p < inDoc.PageCount; p++)
+                                    outDoc.AddPage(inDoc.Pages[p]);
+                        outDoc.Save(mergedPath);
+                    }
+                    foreach (string f in generatedFiles) { try { File.Delete(f); } catch { } }
+                    ed.WriteMessage($"\nMerge OK: {mergedPath}");
+                    finalPath = mergedPath;
+                }
+                catch (System.Exception ex) { ed.WriteMessage($"\nMerge error: {ex.Message}"); }
+            }
+            else if (settings.ConvertToImage && generatedFiles.All(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)))
+            {
+                try
+                {
+                    progressWin.SetSubTitle("Converting to Image...");
+                    List<string> imageFiles = ConvertPdfFilesToImages(generatedFiles, settings);
+
+                    ed.WriteMessage($"\nConvert Image OK: {imageFiles.Count} files.");
+                    if (imageFiles.Count > 0) finalPath = imageFiles[0];
+                }
+                catch (System.Exception ex) { ed.WriteMessage($"\nConvert Image error: {ex.Message}"); }
+            }
+            else if (settings.PdfEditor && generatedFiles.Count > 0 && generatedFiles.All(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)))
+            {
+                try
+                {
+                    var editor = PdfEditorWindow.Instance;
+                    editor.SetDefaultFileName(baseName);
+                    editor.AddPdfFiles(generatedFiles);
+
+                    Commands.MainFormInstance?.Hide();
+
+                    try
+                    {
+                        var acWin = Application.MainWindow;
+                        if (acWin != null)
+                        {
+                            var helper = new System.Windows.Interop.WindowInteropHelper(editor)
+                            {
+                                Owner = acWin.Handle
+                            };
+                        }
+                    }
+                    catch { }
+
+                    if (!editor.IsVisible)
+                        Application.ShowModelessWindow(editor);
+                    else
+                        editor.Activate();
+                }
+                catch (System.Exception ex) { ed.WriteMessage($"\nPDF Editor error: {ex.Message}"); }
+            }
+
+            progressWin.Close();
+            if (settings.OpenPdf && finalPath != null && File.Exists(finalPath))
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = finalPath,
+                        UseShellExecute = true
+                    });
+                }
+                catch (System.Exception ex)
+                {
+                    ed.WriteMessage($"\nOpen PDF error: {ex.Message}");
+                }
+            }
+        }
+
+		// Keep System.Drawing types outside PostProcessFiles so PDF-only workflows do
+		// not trigger System.Drawing.Common loading during JIT compilation.
+		[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+		private static List<string> ConvertPdfFilesToImages(
+			List<string> generatedFiles,
+			PlotHelper.PlotSettingsData settings)
+		{
+			List<string> imageFiles = new();
+			foreach (string pdfFile in generatedFiles)
+			{
+				string imgExt = settings.ImageFormat.ToLowerInvariant();
+				string imgPath = Path.ChangeExtension(pdfFile, imgExt);
+
+				using (var docPdf = PdfiumViewer.PdfDocument.Load(pdfFile))
+				{
+					var size = docPdf.PageSizes[0];
+					int width = (int)(size.Width * settings.ImageDpi / 72.0);
+					int height = (int)(size.Height * settings.ImageDpi / 72.0);
+
+					using var image = docPdf.Render(0, width, height, settings.ImageDpi, settings.ImageDpi,
+						PdfiumViewer.PdfRenderFlags.Annotations);
+					image.Save(imgPath, settings.ImageFormat == "JPG"
+						? System.Drawing.Imaging.ImageFormat.Jpeg
+						: System.Drawing.Imaging.ImageFormat.Png);
+				}
+
+				imageFiles.Add(imgPath);
+				try { File.Delete(pdfFile); } catch { }
+			}
+
+			return imageFiles;
+		}
     }
 }

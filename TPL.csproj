@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <LangVersion>10.0</LangVersion>
     <AssemblyName>TPL</AssemblyName>
     <RootNamespace>TPL</RootNamespace>
@@ -8,19 +8,27 @@
     <UseWPF>true</UseWPF>
     <Platforms>AnyCPU;x64</Platforms>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+
+    <!-- Có thể ghi đè bằng: dotnet build -p:VinaCadSdkDir="..." -->
+    <VinaCadSdkDir Condition="'$(VinaCadSdkDir)' == ''">$(ProgramFiles)\VinaCAD\VinaCAD 2026</VinaCadSdkDir>
+    <DeployBundleEnabled Condition="'$(DeployBundleEnabled)' == ''">false</DeployBundleEnabled>
+    <AdditionalLibPaths>$(VinaCadSdkDir)</AdditionalLibPaths>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
-    <PackageReference Include="AutoCAD.NET" Version="23.1.0" ExcludeAssets="runtime" />
-    <PackageReference Include="AutoCAD.NET.Core" Version="23.1.0" ExcludeAssets="runtime" />
-    <PackageReference Include="AutoCAD.NET.Model" Version="23.1.0" ExcludeAssets="runtime" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
-    <PackageReference Include="AutoCAD.NET" Version="25.0.0" ExcludeAssets="runtime" />
-    <PackageReference Include="AutoCAD.NET.Core" Version="25.0.0" ExcludeAssets="runtime" />
-    <PackageReference Include="AutoCAD.NET.Model" Version="25.0.0" ExcludeAssets="runtime" />
-    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+  <ItemGroup>
+    <Reference Include="TD_Mgd_Net8_26.12_17">
+      <HintPath>$(VinaCadSdkDir)\TD_Mgd_Net8_26.12_17.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="VinaCADCoreMgd_Net8">
+      <HintPath>$(VinaCadSdkDir)\VinaCADCoreMgd_Net8.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="TakaUI">
+      <HintPath>$(VinaCadSdkDir)\TakaUI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,10 +36,6 @@
     <PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" />
     <PackageReference Include="PDFsharp" Version="6.1.1" />
     <PackageReference Include="System.Management" Version="10.0.7" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="System.Net.Http" />
   </ItemGroup>
 
   <ItemGroup>
@@ -57,24 +61,20 @@
     </None>
   </ItemGroup>
 
-  <!-- Post-build: Tự động deploy vào ApplicationPlugins -->
-  <Target Name="DeployBundle" AfterTargets="Build">
-    <!-- Xác định thư mục con dựa trên TargetFramework -->
+  <!-- Post-build: tự động deploy vào thư mục autoload của VinaCAD -->
+  <Target Name="DeployBundle" AfterTargets="Build" Condition="'$(DeployBundleEnabled)' == 'true'">
     <PropertyGroup>
-      <DeployFolderName Condition="'$(TargetFramework)' == 'net48'">v2021-2024</DeployFolderName>
-      <DeployFolderName Condition="'$(TargetFramework)' == 'net8.0-windows'">v2025-2026</DeployFolderName>
+      <DeployFolderName>v2025-2026</DeployFolderName>
     </PropertyGroup>
     <!-- Tạo thư mục bundle nếu chưa có -->
-    <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)" />
+    <MakeDir Directories="$(AppData)\VinaCAD\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)" />
     <!-- Copy tất cả các file DLL (bao gồm cả thư viện) vào Contents\$(DeployFolderName) -->
-    <Copy SourceFiles="@(ReferenceCopyLocalPaths)" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)" SkipUnchangedFiles="false" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)" SkipUnchangedFiles="false" />
+    <Copy SourceFiles="@(ReferenceCopyLocalPaths)" DestinationFolder="$(AppData)\VinaCAD\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)" SkipUnchangedFiles="false" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(AppData)\VinaCAD\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)" SkipUnchangedFiles="false" />
     <!-- Copy PackageContents.xml vào bundle root -->
-    <Copy SourceFiles="$(ProjectDir)TPL.bundle\PackageContents.xml" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle" SkipUnchangedFiles="false" />
+    <Copy SourceFiles="$(ProjectDir)TPL.bundle\PackageContents.xml" DestinationFolder="$(AppData)\VinaCAD\ApplicationPlugins\TPL.bundle" SkipUnchangedFiles="false" />
     <!-- Copy pdfium.dll (Native) -->
-    <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)\x64" />
-    <Copy SourceFiles="$(TargetDir)x64\pdfium.dll" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)\x64" SkipUnchangedFiles="false" Condition="Exists('$(TargetDir)x64\pdfium.dll')" />
+    <MakeDir Directories="$(AppData)\VinaCAD\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)\x64" />
+    <Copy SourceFiles="$(TargetDir)x64\pdfium.dll" DestinationFolder="$(AppData)\VinaCAD\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)\x64" SkipUnchangedFiles="false" Condition="Exists('$(TargetDir)x64\pdfium.dll')" />
   </Target>
 </Project>
-
-

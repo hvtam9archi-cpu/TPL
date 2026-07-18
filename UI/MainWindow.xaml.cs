@@ -5,9 +5,9 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
-using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.DatabaseServices;
-using Application = Autodesk.AutoCAD.ApplicationServices.Application;
+using Prima.VinaCAD.ApplicationServices;
+using Teigha.DatabaseServices;
+using Application = Prima.VinaCAD.ApplicationServices.Application;
 
 namespace TPL
 {
@@ -44,7 +44,7 @@ namespace TPL
 
 			InitializeComponent();
 
-			// Defer AutoCAD API calls — KHÔNG gọi trong constructor để tránh Access Violation
+			// Defer VinaCAD API calls — không gọi trong constructor để tránh Access Violation
 			this.Loaded += (s, e) =>
 			{
 				try
@@ -225,9 +225,9 @@ namespace TPL
 					catch { }
 				}
 
-				// Fallback 2: tìm styexe.exe trong thư mục cài đặt AutoCAD
-				string acadDir = Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);
-				string styExePath = Path.Combine(acadDir, "styexe.exe");
+				// Fallback 2: tìm styexe.exe cạnh tiến trình VinaCAD hiện tại
+				string vinaCadDir = Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);
+				string styExePath = Path.Combine(vinaCadDir, "styexe.exe");
 
 				if (!File.Exists(path))
 				{
@@ -239,7 +239,7 @@ namespace TPL
 					return;
 				}
 
-				// Ưu tiên dùng styexe.exe (trình chỉnh sửa CTB tích hợp của AutoCAD)
+				// Ưu tiên dùng styexe.exe (trình chỉnh sửa CTB tích hợp của VinaCAD)
 				// Nếu không tìm thấy styexe.exe, dùng UseShellExecute để Windows tự chọn ứng dụng
 				if (File.Exists(styExePath))
 				{
@@ -420,7 +420,7 @@ namespace TPL
 			if (isInitializing) return;
 			try
 			{
-				if (e.DBObject is BlockReference || e.DBObject is Autodesk.AutoCAD.DatabaseServices.Polyline)
+				if (e.DBObject is BlockReference || e.DBObject is Teigha.DatabaseServices.Polyline)
 				{
 					this.Dispatcher.InvokeAsync(() => { TriggerPreviewInternal(); });
 				}
@@ -433,7 +433,7 @@ namespace TPL
 			if (isInitializing) return;
 			try
 			{
-				if (e.DBObject is BlockReference || e.DBObject is Autodesk.AutoCAD.DatabaseServices.Polyline)
+				if (e.DBObject is BlockReference || e.DBObject is Teigha.DatabaseServices.Polyline)
 				{
 					this.Dispatcher.InvokeAsync(() => { TriggerPreviewInternal(); });
 				}

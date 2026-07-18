@@ -1,7 +1,7 @@
-# TPL - AutoCAD Batch Plotter & PDF Editor
+# TPL - VinaCAD Batch Plotter & PDF Editor
 
 ## Giới thiệu
-**TPL** là một AutoCAD Plugin mạnh mẽ được phát triển bằng ngôn ngữ C# .NET. Công cụ này hỗ trợ các kỹ sư và kiến trúc sư tối ưu hóa quy trình in ấn bản vẽ hàng loạt (Batch Plotting) và quản lý, chỉnh sửa tệp PDF đầu ra một cách trực quan, nhanh chóng ngay trong môi trường AutoCAD.
+**TPL** là plugin VinaCAD được phát triển bằng C#/.NET. Công cụ hỗ trợ in bản vẽ hàng loạt và quản lý, chỉnh sửa tệp PDF ngay trong VinaCAD.
 
 ---
 
@@ -18,7 +18,7 @@
 - **Giao Diện Hiện Đại (WPF Dark Theme):**
   - Giao diện được thiết kế hoàn toàn bằng WPF với ngôn ngữ thiết kế **Dark Mode** đồng bộ, hiện đại, mang lại trải nghiệm chuyên nghiệp cho người dùng.
   - Hỗ trợ đa ngôn ngữ (Localization).
-  - Tích hợp trực tiếp thanh Ribbon tiện dụng trên AutoCAD.
+  - Tích hợp trực tiếp thanh Ribbon của VinaCAD.
 - **Quản Lý Bản Quyền (License Manager):**
   - Hệ thống xác thực thông tin thiết bị và quản lý kích hoạt bản quyền an toàn.
 
@@ -27,12 +27,12 @@
 ## Yêu cầu hệ thống
 
 - **Hệ điều hành:** Windows 64-bit.
-- **Phiên bản AutoCAD:** Hỗ trợ từ AutoCAD 2021 đến 2026 (Series R24.0 đến R25.1).
-- **Runtime:** .NET Framework 4.8.
+- **Phiên bản VinaCAD:** VinaCAD 2026.
+- **Runtime:** .NET 8 Desktop Runtime.
 
 ---
 
-## Danh sách lệnh trong AutoCAD
+## Danh sách lệnh trong VinaCAD
 
 - `TPL`: Khởi chạy giao diện chính hỗ trợ in ấn hàng loạt và biên tập tệp PDF.
 - `TPL_LICENSE`: Mở cửa sổ thông tin và kích hoạt bản quyền sản phẩm.
@@ -46,19 +46,20 @@
 - **Công nghệ sử dụng:**
   - **WPF (Windows Presentation Foundation):** Thiết kế giao diện Dark Mode đồng bộ, chuyên nghiệp.
   - **Thư viện PDF:** `PdfiumViewer` và `PDFsharp` đảm nhận việc hiển thị và xử lý cấu trúc file PDF.
-  - **Quản lý Tài nguyên (Resource & Memory Management):** Tách biệt logic xử lý bản vẽ và quản lý bộ nhớ thông qua Transient Graphics để đảm bảo AutoCAD hoạt động ổn định, không bị rò rỉ bộ nhớ hoặc crash hệ thống.
+  - **VinaCAD API:** Sử dụng `Prima.VinaCAD` cho lớp ứng dụng/editor và `Teigha` cho database, geometry, runtime và PDF export.
+  - **Quản lý Tài nguyên (Resource & Memory Management):** Tách biệt logic xử lý bản vẽ và quản lý bộ nhớ thông qua Transient Graphics để VinaCAD hoạt động ổn định.
 
 ---
 
 ## Hướng dẫn Build & Triển khai
 
-1. **Chuẩn bị:** Mở tệp Solution `TPL.sln` bằng Visual Studio.
+1. **Chuẩn bị:** Cài VinaCAD 2026 và mở `TPL.sln` bằng Visual Studio.
 2. **Build:** Thực hiện Build project ở chế độ mong muốn.
-3. **Tự động Deploy:** Sự kiện Post-build được cấu hình sẵn trong `TPL.csproj` sẽ tự động tạo thư mục bundle và sao chép toàn bộ DLL cần thiết cùng tệp cấu hình vào thư mục Plugins của AutoCAD:
+3. **Tự động Deploy:** Sự kiện post-build trong `TPL.csproj` sao chép bundle vào thư mục autoload của VinaCAD:
    ```text
-   %AppData%\Autodesk\ApplicationPlugins\TPL.bundle
+   %AppData%\VinaCAD\ApplicationPlugins\TPL.bundle
    ```
-4. **Khởi động:** Mở AutoCAD lên và Plugin sẽ tự động được tải (LoadOnAutoCADStartup).
+4. **Khởi động:** Mở lại VinaCAD; plugin sẽ được nạp tự động. Nếu SDK được cài ở thư mục khác, build với `-p:VinaCadSdkDir="đường-dẫn-VinaCAD-2026"`.
 
 ---
 

@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows;
-using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.EditorInput;
-using Application = Autodesk.AutoCAD.ApplicationServices.Application;
+using Prima.VinaCAD.ApplicationServices;
+using Teigha.DatabaseServices;
+using Prima.VinaCAD.EditorInput;
+using Application = Prima.VinaCAD.ApplicationServices.Application;
 
 namespace TPL
 {
@@ -65,7 +65,18 @@ namespace TPL
 			{
 				var activeDoc = Application.DocumentManager.MdiActiveDocument;
 				txtFileName.Text = activeDoc != null ? Path.GetFileNameWithoutExtension(activeDoc.Name) : "output";
-				SelectComboItem(cbPrinters, "AutoCAD PDF (High Quality Print).pc3");
+				SelectComboItem(cbPrinters, "DWG To PDF.pc3");
+				if (cbPrinters.SelectedItem == null)
+				{
+					string fallbackPdfDevice = cbPrinters.Items.Cast<object>()
+						.Select(item => item?.ToString())
+						.FirstOrDefault(name => !string.IsNullOrEmpty(name) &&
+							name.IndexOf("PDF", StringComparison.OrdinalIgnoreCase) >= 0);
+					if (!string.IsNullOrEmpty(fallbackPdfDevice))
+						SelectComboItem(cbPrinters, fallbackPdfDevice);
+					else if (cbPrinters.Items.Count > 0)
+						cbPrinters.SelectedIndex = 0;
+				}
 				SelectComboItem(cbStyles, "monochrome.ctb");
 				SelectComboItem(cbPapers, "ISO full bleed A3 (420.00 x 297.00 MM)");
 				txtPath.Text = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
@@ -139,7 +150,7 @@ namespace TPL
 			this.Hide();
 			try
 			{
-				Autodesk.AutoCAD.Internal.Utils.SetFocusToDwgView();
+				Teigha.Windows.Utils.SetFocusToDwgView();
 				Document doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null || doc.IsDisposed) return;
 				Editor ed = doc.Editor;
@@ -177,7 +188,7 @@ namespace TPL
 			this.Hide();
 			try
 			{
-				Autodesk.AutoCAD.Internal.Utils.SetFocusToDwgView();
+				Teigha.Windows.Utils.SetFocusToDwgView();
 				Document doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null || doc.IsDisposed) return;
 				Editor ed = doc.Editor;
@@ -228,7 +239,7 @@ namespace TPL
 			this.Hide();
 			try
 			{
-				Autodesk.AutoCAD.Internal.Utils.SetFocusToDwgView();
+				Teigha.Windows.Utils.SetFocusToDwgView();
 				doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null || doc.IsDisposed) return;
 				Editor ed = doc.Editor;
@@ -279,7 +290,7 @@ namespace TPL
 			this.Hide();
 			try
 			{
-				Autodesk.AutoCAD.Internal.Utils.SetFocusToDwgView();
+				Teigha.Windows.Utils.SetFocusToDwgView();
 				doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null || doc.IsDisposed) return;
 				Editor ed = doc.Editor;
@@ -324,7 +335,7 @@ namespace TPL
 			this.Hide();
 			try
 			{
-				Autodesk.AutoCAD.Internal.Utils.SetFocusToDwgView();
+				Teigha.Windows.Utils.SetFocusToDwgView();
 				doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null || doc.IsDisposed) return;
 				Editor ed = doc.Editor;
@@ -365,11 +376,20 @@ namespace TPL
 				if (frames.Count == 0)
 				{ System.Windows.MessageBox.Show(L10n.T("msg_no_result"), L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Information); return; }
 				PlotLogic.SortFrames(frames, Settings);
-				using DocumentLock docLock = doc.LockDocument();
-				PlotLogic.PlotAll(frames, Settings);
+
+				DocumentLock docLock = null;
+				try { docLock = doc.LockDocument(); } catch { }
+				try
+				{
+					PlotLogic.PlotAll(frames, Settings);
+				}
+				finally
+				{
+					if (docLock != null) docLock.Dispose();
+				}
 			}
 			catch (Exception ex)
-			{ System.Windows.MessageBox.Show(string.Format(L10n.T("msg_plot_error"), ex.Message), L10n.T("err_title"), MessageBoxButton.OK, MessageBoxImage.Error); }
+			{ System.Windows.MessageBox.Show(string.Format(L10n.T("msg_plot_error"), ex.Message + "\n\nStack Trace:\n" + ex.StackTrace), L10n.T("err_title"), MessageBoxButton.OK, MessageBoxImage.Error); }
 		}
 	}
 }

@@ -33,7 +33,7 @@ namespace TPL
 		/// <summary>Cached single-page PDF bytes for instant preview.</summary>
 		public byte[] PreviewData { get; set; }
 
-		/// <summary>Nhãn nguồn gốc: "Plot" cho xuất từ AutoCAD, "File" cho thêm từ file.</summary>
+		/// <summary>Nhãn nguồn gốc: "Plot" cho xuất từ VinaCAD, "File" cho thêm từ file.</summary>
 		public string SourceLabel { get; set; } = "Plot";
 
 		/// <summary>Mã nhóm để nhận diện batch (mỗi lần Plot hoặc Add file là 1 group).</summary>

@@ -1,15 +1,18 @@
 using System;
 using System.Collections.Generic;
-using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.GraphicsInterface;
-using Application = Autodesk.AutoCAD.ApplicationServices.Application;
+using System.Linq;
+using Prima.VinaCAD.ApplicationServices;
+using Teigha.DatabaseServices;
+using Teigha.Geometry;
+using Teigha.GraphicsInterface;
+using Application = Prima.VinaCAD.ApplicationServices.Application;
 
 namespace TPL
 {
 	public partial class MainWindow
 	{
+		private static int _nextTransientSubDrawingMode = 128;
+
 		// ── Global doc events (STATIC — phải crash-proof) ──
 		private static void GlobalDocumentActivated(object sender, DocumentCollectionEventArgs e)
 		{
@@ -35,6 +38,11 @@ namespace TPL
 		private void DrawMarkersIfNeeded(List<PlotFrame> frames)
 		{
 			if (frames == null || frames.Count == 0) return;
+			for (int i = 0; i < frames.Count; i++)
+			{
+				frames[i].OrderIndex = i + 1;
+				frames[i].MarkerText = (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+			}
 			if (chkMark.IsChecked == true) { ClearTransientMarkers(); DrawPermanentMarkers(frames); }
 			else { ClearPermanentMarkers(); DrawTransientMarkers(frames); }
 		}
@@ -98,43 +106,107 @@ namespace TPL
 		private void DrawTransientMarkers(List<PlotFrame> frames)
 		{
 			ClearTransientMarkers();
+			string previewStage = "initializing";
 			try
 			{
 				Document doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null) return;
+				previewStage = "locking document";
 				using var docLock = doc.LockDocument();
+				previewStage = "reading current layout";
 				string curLayout = LayoutManager.Current.CurrentLayout;
+				previewStage = "getting TransientManager";
 				var tm = TransientManager.CurrentTransientManager;
+				if (tm == null) throw new InvalidOperationException("VinaCAD TransientManager is unavailable.");
+				int activeViewport = 0;
+				try { activeViewport = Convert.ToInt32(Application.GetSystemVariable("CVPORT")); } catch { }
+				var viewportNumbers = new IntegerCollection();
+				if (activeViewport > 0) viewportNumbers.Add(activeViewport);
+				var drawingMode = TransientDrawingMode.Main;
+				int subDrawingMode = System.Threading.Interlocked.Increment(ref _nextTransientSubDrawingMode);
+				try
+				{
+					previewStage = "requesting a transient drawing mode";
+					int modeResult = tm.GetFreeSubDrawingMode(drawingMode, viewportNumbers, ref subDrawingMode);
+					if (modeResult != 0)
+						doc.Editor.WriteMessage($"\n[TPL] GetFreeSubDrawingMode returned {modeResult}; using mode {subDrawingMode}.");
+				}
+				catch (System.Exception ex)
+				{
+					// VinaCAD 2026 exposes this API but currently returns
+					// eNotImplementedYet. Continue with our process-unique mode.
+					doc.Editor.WriteMessage(
+						$"\n[TPL] GetFreeSubDrawingMode unavailable ({ex.Message}); using mode {subDrawingMode}.");
+				}
+				int markerCount = 0;
 				_markerDoc = doc;
 				for (int i = 0; i < frames.Count; i++)
 				{
 					var frame = frames[i];
-					if (frame.LayoutName != curLayout) continue;
+					if (!string.Equals(frame.LayoutName, curLayout, StringComparison.OrdinalIgnoreCase)) continue;
 					double lenX = frame.Extents.MaxPoint.X - frame.Extents.MinPoint.X;
 					double lenY = frame.Extents.MaxPoint.Y - frame.Extents.MinPoint.Y;
 					if (lenX <= 0 || lenY <= 0) continue;
 
-					var txt = new MText
+					var txt = new MText();
+					previewStage = $"creating marker text {frame.MarkerText}";
+					txt.SetDatabaseDefaults(doc.Database);
+					txt.Contents = frame.MarkerText;
+					txt.TextHeight = Math.Min(lenX, lenY) / 5.0;
+					txt.Location = new Point3d(
+						(frame.Extents.MinPoint.X + frame.Extents.MaxPoint.X) / 2,
+						(frame.Extents.MinPoint.Y + frame.Extents.MaxPoint.Y) / 2, 0);
+					txt.Attachment = AttachmentPoint.MiddleCenter;
+					txt.ColorIndex = 1;
+					previewStage = $"adding marker text {frame.MarkerText}";
+					bool textAdded = tm.AddTransient(txt, drawingMode, subDrawingMode, viewportNumbers);
+					if (!textAdded)
 					{
-						Contents = "{\\fVerdana|b0|i0|c0|p0;" + (i + 1) + "}",
-						TextHeight = Math.Min(lenX, lenY) / 5.0,
-						Location = new Point3d((frame.Extents.MinPoint.X + frame.Extents.MaxPoint.X) / 2, (frame.Extents.MinPoint.Y + frame.Extents.MaxPoint.Y) / 2, 0),
-						Attachment = AttachmentPoint.MiddleCenter,
-						ColorIndex = 1
-					};
-					tm.AddTransient(txt, TransientDrawingMode.Main, 128, new IntegerCollection());
+						txt.Dispose();
+						throw new InvalidOperationException($"VinaCAD rejected transient number {frame.MarkerText}.");
+					}
 					transientObjects.Add(txt);
 
-					var line = new Line(new Point3d(frame.Extents.MinPoint.X, frame.Extents.MaxPoint.Y, 0), new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0))
+					previewStage = $"creating marker line {frame.MarkerText}";
+					var line = new Line(
+						new Point3d(frame.Extents.MinPoint.X, frame.Extents.MaxPoint.Y, 0),
+						new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0));
+					line.SetDatabaseDefaults(doc.Database);
+					line.ColorIndex = 1;
+					previewStage = $"adding marker line {frame.MarkerText}";
+					bool lineAdded = tm.AddTransient(line, drawingMode, subDrawingMode, viewportNumbers);
+					if (!lineAdded)
 					{
-						ColorIndex = 1
-					};
-					tm.AddTransient(line, TransientDrawingMode.Main, 128, new IntegerCollection());
+						line.Dispose();
+						throw new InvalidOperationException($"VinaCAD rejected transient frame {frame.MarkerText}.");
+					}
 					transientObjects.Add(line);
+					markerCount++;
 				}
+				previewStage = "refreshing screen";
 				doc.Editor.UpdateScreen();
+				if (markerCount == 0)
+				{
+					doc.Editor.WriteMessage(
+						$"\n[TPL] No transient marker matched current layout '{curLayout}' " +
+						$"(frame layouts: {string.Join(", ", frames.ConvertAll(frame => frame.LayoutName).Distinct(StringComparer.OrdinalIgnoreCase))}).");
+				}
+				else
+				{
+					doc.Editor.WriteMessage(
+						$"\n[TPL] Added {markerCount} transient marker(s) to CVPORT {activeViewport}, mode {subDrawingMode}.");
+				}
 			}
-			catch { ClearTransientMarkers(); }
+			catch (System.Exception ex)
+			{
+				try
+				{
+					Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage(
+						$"\n[TPL] Marker preview error at {previewStage}: {ex.Message}");
+				}
+				catch { }
+				ClearTransientMarkers();
+			}
 		}
 
 		private void DrawPermanentMarkers(List<PlotFrame> frames)
@@ -155,9 +227,17 @@ namespace TPL
 						{
 							Name = "TPL_MARKERS",
 							IsPlottable = false,
-							Color = Autodesk.AutoCAD.Colors.Color.FromColorIndex(Autodesk.AutoCAD.Colors.ColorMethod.ByAci, 1)
+							Color = Teigha.Colors.Color.FromColorIndex(Teigha.Colors.ColorMethod.ByAci, 1)
 						};
 						lt.Add(ltr); tr.AddNewlyCreatedDBObject(ltr, true);
+					}
+					else
+					{
+						var markerLayer = (LayerTableRecord)tr.GetObject(lt["TPL_MARKERS"], OpenMode.ForWrite);
+						markerLayer.IsOff = false;
+						markerLayer.IsFrozen = false;
+						markerLayer.IsLocked = false;
+						markerLayer.IsPlottable = false;
 					}
 					string curLayout = LayoutManager.Current.CurrentLayout;
 					var btr = (BlockTableRecord)tr.GetObject(doc.Database.CurrentSpaceId, OpenMode.ForWrite);
@@ -179,7 +259,7 @@ namespace TPL
 						var txt = new MText
 						{
 							Layer = "TPL_MARKERS",
-							Contents = "{\\fVerdana|b0|i0|c0|p0;" + (i + 1) + "}",
+							Contents = frame.MarkerText,
 							TextHeight = Math.Min(lenX, lenY) / 5.0,
 							Location = new Point3d((frame.Extents.MinPoint.X + frame.Extents.MaxPoint.X) / 2, (frame.Extents.MinPoint.Y + frame.Extents.MaxPoint.Y) / 2, 0),
 							Attachment = AttachmentPoint.MiddleCenter,
@@ -189,9 +269,12 @@ namespace TPL
 					}
 					tr.Commit();
 				}
-				doc.Editor.UpdateScreen();
+				doc.Editor.Regen();
 			}
-			catch { }
+			catch (System.Exception ex)
+			{
+				try { doc.Editor.WriteMessage($"\n[TPL] Permanent marker error: {ex.Message}"); } catch { }
+			}
 		}
 
 		// ── Cleanup on close ──

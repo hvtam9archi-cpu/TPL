@@ -1,9 +1,11 @@
 using System;
+using System.ComponentModel;
 using System.Windows.Input;
-using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.Runtime;
-using Autodesk.Windows;
-using Application = Autodesk.AutoCAD.ApplicationServices.Application;
+using Prima.VinaCAD.ApplicationServices;
+using Teigha.Runtime;
+using Teigha.DatabaseServices;
+using Teigha.Windows;
+using Application = Prima.VinaCAD.ApplicationServices.Application;
 
 namespace TPL
 {
@@ -12,29 +14,152 @@ namespace TPL
 		private const string TabId = "TH_TOOLS_TAB";
 		private const string TabTitle = "TH Tools";
 		private readonly RibbonCommandHandler _cmdHandler = new();
+		private readonly System.Collections.Generic.HashSet<Database> _hookedDatabases = new();
+		private static System.Runtime.Loader.AssemblyLoadContext _pluginLoadContext;
+		private bool _componentManagerSubscribed;
 
 		public void Initialize()
 		{
-			Application.Idle += Application_Idle;
-			Application.SystemVariableChanged += Application_SystemVariableChanged;
+			RegisterDependencyResolver();
+			SubscribeRibbonLifecycle();
+
+			Application.DocumentManager.DocumentActivated += DocumentManager_DocumentActivated;
+			Application.DocumentManager.DocumentCreated += DocumentManager_DocumentCreated;
+			Application.DocumentManager.DocumentToBeDestroyed += DocumentManager_DocumentToBeDestroyed;
+
+			var doc = Application.DocumentManager.MdiActiveDocument;
+			if (doc != null)
+			{
+				HookDatabase(doc.Database);
+			}
+			TryCreateRibbon();
 		}
 
 		public void Terminate()
 		{
-			Application.Idle -= Application_Idle;
-			Application.SystemVariableChanged -= Application_SystemVariableChanged;
-		}
-
-		private void Application_Idle(object sender, EventArgs e)
-		{
-			if (ComponentManager.Ribbon != null)
+			Application.DocumentManager.DocumentActivated -= DocumentManager_DocumentActivated;
+			Application.DocumentManager.DocumentCreated -= DocumentManager_DocumentCreated;
+			Application.DocumentManager.DocumentToBeDestroyed -= DocumentManager_DocumentToBeDestroyed;
+			if (_componentManagerSubscribed)
 			{
-				Application.Idle -= Application_Idle;
-				CreateRibbon();
+				ComponentManager.PropertyChanged -= ComponentManager_PropertyChanged;
+				_componentManagerSubscribed = false;
+			}
+			UnhookAllDatabases();
+			if (_pluginLoadContext != null)
+			{
+				_pluginLoadContext.Resolving -= ResolvePluginDependency;
+				_pluginLoadContext = null;
 			}
 		}
 
-		private void Application_SystemVariableChanged(object sender, Autodesk.AutoCAD.ApplicationServices.SystemVariableChangedEventArgs e)
+		/// <summary>
+		/// VinaCAD loads managed plugins in its own AssemblyLoadContext. Resolve NuGet
+		/// dependencies from the bundle folder in that same context, never in Default.
+		/// </summary>
+		private static void RegisterDependencyResolver()
+		{
+			var pluginAssembly = typeof(RibbonSetup).Assembly;
+			_pluginLoadContext = System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(pluginAssembly);
+			if (_pluginLoadContext != null)
+			{
+				_pluginLoadContext.Resolving -= ResolvePluginDependency;
+				_pluginLoadContext.Resolving += ResolvePluginDependency;
+			}
+		}
+
+		private static System.Reflection.Assembly ResolvePluginDependency(
+			System.Runtime.Loader.AssemblyLoadContext context,
+			System.Reflection.AssemblyName requestedAssembly)
+		{
+			try
+			{
+				string pluginFolder = System.IO.Path.GetDirectoryName(typeof(RibbonSetup).Assembly.Location);
+				string dependencyPath = System.IO.Path.Combine(pluginFolder, requestedAssembly.Name + ".dll");
+				if (!System.IO.File.Exists(dependencyPath)) return null;
+
+				var localAssembly = System.Reflection.AssemblyName.GetAssemblyName(dependencyPath);
+				if (!string.Equals(localAssembly.Name, requestedAssembly.Name, StringComparison.OrdinalIgnoreCase))
+					return null;
+
+				return context.LoadFromAssemblyPath(dependencyPath);
+			}
+			catch (System.Exception ex)
+			{
+				try
+				{
+					string pluginFolder = System.IO.Path.GetDirectoryName(typeof(RibbonSetup).Assembly.Location);
+					System.IO.File.AppendAllText(
+						System.IO.Path.Combine(pluginFolder, "tpl_dependency_log.txt"),
+						$"[{DateTime.Now:O}] {requestedAssembly.FullName}: {ex}\r\n");
+				}
+				catch { }
+				return null;
+			}
+		}
+
+		private void HookDatabase(Database db)
+		{
+			if (db == null) return;
+			lock (_hookedDatabases)
+			{
+				if (_hookedDatabases.Add(db))
+				{
+					db.SystemVariableChanged += Database_SystemVariableChanged;
+				}
+			}
+		}
+
+		private void UnhookDatabase(Database db)
+		{
+			if (db == null) return;
+			lock (_hookedDatabases)
+			{
+				if (_hookedDatabases.Remove(db))
+				{
+					try { db.SystemVariableChanged -= Database_SystemVariableChanged; } catch { }
+				}
+			}
+		}
+
+		private void UnhookAllDatabases()
+		{
+			lock (_hookedDatabases)
+			{
+				foreach (var db in _hookedDatabases)
+				{
+					try { db.SystemVariableChanged -= Database_SystemVariableChanged; } catch { }
+				}
+				_hookedDatabases.Clear();
+			}
+		}
+
+		private void DocumentManager_DocumentActivated(object sender, DocumentCollectionEventArgs e)
+		{
+			if (e.Document != null)
+			{
+				HookDatabase(e.Document.Database);
+				TryCreateRibbon();
+			}
+		}
+
+		private void DocumentManager_DocumentCreated(object sender, DocumentCollectionEventArgs e)
+		{
+			if (e.Document != null)
+			{
+				HookDatabase(e.Document.Database);
+			}
+		}
+
+		private void DocumentManager_DocumentToBeDestroyed(object sender, DocumentCollectionEventArgs e)
+		{
+			if (e.Document != null)
+			{
+				UnhookDatabase(e.Document.Database);
+			}
+		}
+
+		private void Database_SystemVariableChanged(object sender, SystemVariableChangedEventArgs e)
 		{
 			if (e.Name.Equals("WSCURRENT", StringComparison.OrdinalIgnoreCase) && ComponentManager.Ribbon != null)
 			{
@@ -42,11 +167,33 @@ namespace TPL
 			}
 		}
 
+		private void SubscribeRibbonLifecycle()
+		{
+			if (_componentManagerSubscribed) return;
+			ComponentManager.PropertyChanged += ComponentManager_PropertyChanged;
+			_componentManagerSubscribed = true;
+		}
+
+		private void ComponentManager_PropertyChanged(object sender, PropertyChangedEventArgs e)
+		{
+			if (string.IsNullOrEmpty(e?.PropertyName)
+				|| string.Equals(e.PropertyName, "Ribbon", StringComparison.OrdinalIgnoreCase))
+			{
+				TryCreateRibbon();
+			}
+		}
+
+		private void TryCreateRibbon()
+		{
+			if (ComponentManager.Ribbon != null)
+				CreateRibbon();
+		}
+
 		[System.Runtime.InteropServices.DllImport("gdi32.dll")]
 		[return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
 		private static extern bool DeleteObject(IntPtr hObject);
 
-		/// <summary>Load ảnh PNG trực tiếp từ assembly manifest stream và force resize bằng System.Drawing để chống lỗi scale/crop của AutoCAD.</summary>
+		/// <summary>Load ảnh PNG từ assembly và resize để tránh lỗi scale/crop trên Ribbon VinaCAD.</summary>
 		private static System.Windows.Media.ImageSource LoadEmbeddedImage(string resourceName, int size)
 		{
 			try
@@ -196,13 +343,13 @@ namespace TPL
 				Document doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null) return;
 
-				// Tách: lệnh cancel (\x1B\x1B) đi trước, tên command đi sau (buffer riêng)
-				// Loại bỏ prefix \x03 nếu có, chỉ lấy tên lệnh thực
+				// Loại bỏ prefix Ctrl+C nếu có, chỉ lấy tên lệnh thực.
+				// Gửi cancel + command trong cùng buffer để prompt chọn Window
+				// (ví dụ "Specify opposite corner") không nuốt mất lệnh TPL.
 				string cleanCmd = cmd.Replace("\x03", "").Trim();
 				if (string.IsNullOrEmpty(cleanCmd)) return;
 
-				doc.SendStringToExecute("\x1B\x1B", true, false, false);
-				doc.SendStringToExecute(cleanCmd + "\n", true, false, false);
+				doc.SendStringToExecute("\x1B\x1B" + cleanCmd + "\n", true, false, false);
 			}
 		}
 	}

@@ -1,6 +1,6 @@
-using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.Runtime;
-using Application = Autodesk.AutoCAD.ApplicationServices.Application;
+using Prima.VinaCAD.ApplicationServices;
+using Teigha.Runtime;
+using Application = Prima.VinaCAD.ApplicationServices.Application;
 
 namespace TPL
 {
@@ -18,6 +18,8 @@ namespace TPL
 				Document doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null) return;
 
+				// Tạm thời vô hiệu hoá phần kiểm tra bản quyền
+				/*
 				// Kiểm tra revoke từ xa TRƯỚC — để revoke có hiệu lực ngay lập tức
 				if (LicenseManager.CheckRemoteRevokeSync())
 				{
@@ -32,16 +34,17 @@ namespace TPL
 				if (!license.IsValid)
 				{
 					var licenseWin = new LicenseWindow(license);
-					if (Application.ShowModalWindow(licenseWin) != true)
+					Application.ShowModalWindow(licenseWin);
+					license = LicenseManager.GetLicenseInfo();
+					if (!license.IsValid)
 					{
 						doc.Editor.WriteMessage("\n[TPL] Bản quyền không hợp lệ hoặc đã hết hạn.\n");
 						return;
 					}
-					license = LicenseManager.GetLicenseInfo();
-					if (!license.IsValid) return;
 				}
 
 				LicenseManager.UpdateLastRunDate(license);
+				*/
 
 				if (_mainWindow == null || !_mainWindow.IsLoaded)
 				{
@@ -63,6 +66,12 @@ namespace TPL
 				}
 				else
 				{
+					// Activate() alone cannot restore a modeless WPF window that
+					// was hidden while VinaCAD was collecting a selection.
+					if (!_mainWindow.IsVisible)
+						_mainWindow.Show();
+					if (_mainWindow.WindowState == System.Windows.WindowState.Minimized)
+						_mainWindow.WindowState = System.Windows.WindowState.Normal;
 					_mainWindow.Activate();
 				}
 			}

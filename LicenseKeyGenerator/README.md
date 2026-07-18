@@ -109,7 +109,7 @@ XXXX-XXXX-XXXX-XXXX (16 ký tự Base32)
 ## Luồng thu hồi từ xa
 
 ```
-Admin (Web App)                          C# Client (AutoCAD)
+Admin (Web App)                          C# Client (VinaCAD)
       │                                         │
       │  Thêm HWID/KEY vào Revoke List          │
       │─────────────────┐                       │

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Management;
 using System.Net;
 using System.Net.Http;
@@ -131,7 +132,7 @@ namespace TPL
 						CleanupAppliedKeys(info);
 					}
 				}
-				catch (TaskCanceledException) { /* Timeout hoặc AutoCAD đóng — bỏ qua */ }
+				catch (TaskCanceledException) { /* Timeout hoặc VinaCAD đóng — bỏ qua */ }
 				catch { /* Không có mạng — bỏ qua */ }
 			});
 		}
