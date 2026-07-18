@@ -205,7 +205,7 @@ namespace TPL
 
 				// Tìm đường dẫn file CTB/STB
 				string styleDir = "";
-				using (doc.LockDocument())
+				using (new SafeDocLock(doc))
 					styleDir = Path.Combine((string)Application.GetSystemVariable("ROAMABLEROOTPREFIX"), @"Plotters\Plot Styles");
 
 				string path = Path.Combine(styleDir, styleName);

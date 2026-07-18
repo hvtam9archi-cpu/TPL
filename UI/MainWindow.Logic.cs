@@ -377,15 +377,9 @@ namespace TPL
 				{ System.Windows.MessageBox.Show(L10n.T("msg_no_result"), L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Information); return; }
 				PlotLogic.SortFrames(frames, Settings);
 
-				DocumentLock docLock = null;
-				try { docLock = doc.LockDocument(); } catch { }
-				try
+				using (new SafeDocLock(doc))
 				{
 					PlotLogic.PlotAll(frames, Settings);
-				}
-				finally
-				{
-					if (docLock != null) docLock.Dispose();
 				}
 			}
 			catch (Exception ex)

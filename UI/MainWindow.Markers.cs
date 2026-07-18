@@ -11,8 +11,6 @@ namespace TPL
 {
 	public partial class MainWindow
 	{
-		private static int _nextTransientSubDrawingMode = 128;
-
 		// ── Global doc events (STATIC — phải crash-proof) ──
 		private static void GlobalDocumentActivated(object sender, DocumentCollectionEventArgs e)
 		{
@@ -61,7 +59,7 @@ namespace TPL
 				}
 				if (currentDoc != null)
 				{
-					using var docLock = currentDoc.LockDocument();
+					using var docLock = new SafeDocLock(currentDoc);
 					var tm = TransientManager.CurrentTransientManager;
 					foreach (var obj in transientObjects)
 					{ try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
@@ -77,7 +75,7 @@ namespace TPL
 			if (doc == null || doc.IsDisposed) return;
 			try
 			{
-				using (var docLock = doc.LockDocument())
+				using (var docLock = new SafeDocLock(doc))
 				using (var tr = doc.Database.TransactionManager.StartTransaction())
 				{
 					var bt = (BlockTable)tr.GetObject(doc.Database.BlockTableId, OpenMode.ForRead);
@@ -112,32 +110,21 @@ namespace TPL
 				Document doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null) return;
 				previewStage = "locking document";
-				using var docLock = doc.LockDocument();
+				using var docLock = new SafeDocLock(doc);
 				previewStage = "reading current layout";
 				string curLayout = LayoutManager.Current.CurrentLayout;
 				previewStage = "getting TransientManager";
 				var tm = TransientManager.CurrentTransientManager;
 				if (tm == null) throw new InvalidOperationException("VinaCAD TransientManager is unavailable.");
-				int activeViewport = 0;
-				try { activeViewport = Convert.ToInt32(Application.GetSystemVariable("CVPORT")); } catch { }
+
+				// Dùng IntegerCollection rỗng = vẽ ở tất cả viewports
 				var viewportNumbers = new IntegerCollection();
-				if (activeViewport > 0) viewportNumbers.Add(activeViewport);
 				var drawingMode = TransientDrawingMode.Main;
-				int subDrawingMode = System.Threading.Interlocked.Increment(ref _nextTransientSubDrawingMode);
-				try
-				{
-					previewStage = "requesting a transient drawing mode";
-					int modeResult = tm.GetFreeSubDrawingMode(drawingMode, viewportNumbers, ref subDrawingMode);
-					if (modeResult != 0)
-						doc.Editor.WriteMessage($"\n[TPL] GetFreeSubDrawingMode returned {modeResult}; using mode {subDrawingMode}.");
-				}
-				catch (System.Exception ex)
-				{
-					// VinaCAD 2026 exposes this API but currently returns
-					// eNotImplementedYet. Continue with our process-unique mode.
-					doc.Editor.WriteMessage(
-						$"\n[TPL] GetFreeSubDrawingMode unavailable ({ex.Message}); using mode {subDrawingMode}.");
-				}
+				// Dùng subDrawingMode cố định — GetFreeSubDrawingMode trả về
+				// eNotImplementedYet trên VinaCAD 2026, và giá trị tăng liên tục
+				// gây fail sau nhiều lần gọi.
+				int subDrawingMode = 128;
+
 				int markerCount = 0;
 				_markerDoc = doc;
 				for (int i = 0; i < frames.Count; i++)
@@ -163,7 +150,8 @@ namespace TPL
 					if (!textAdded)
 					{
 						txt.Dispose();
-						throw new InvalidOperationException($"VinaCAD rejected transient number {frame.MarkerText}.");
+						doc.Editor.WriteMessage($"\n[TPL] Transient text {frame.MarkerText} rejected by VinaCAD.");
+						continue;
 					}
 					transientObjects.Add(txt);
 
@@ -178,7 +166,8 @@ namespace TPL
 					if (!lineAdded)
 					{
 						line.Dispose();
-						throw new InvalidOperationException($"VinaCAD rejected transient frame {frame.MarkerText}.");
+						doc.Editor.WriteMessage($"\n[TPL] Transient line {frame.MarkerText} rejected by VinaCAD.");
+						continue;
 					}
 					transientObjects.Add(line);
 					markerCount++;
@@ -194,7 +183,7 @@ namespace TPL
 				else
 				{
 					doc.Editor.WriteMessage(
-						$"\n[TPL] Added {markerCount} transient marker(s) to CVPORT {activeViewport}, mode {subDrawingMode}.");
+						$"\n[TPL] Added {markerCount} transient marker(s) on all viewports.");
 				}
 			}
 			catch (System.Exception ex)
@@ -216,7 +205,7 @@ namespace TPL
 			if (doc == null) return;
 			try
 			{
-				using (var docLock = doc.LockDocument())
+				using (var docLock = new SafeDocLock(doc))
 				using (var tr = doc.Database.TransactionManager.StartTransaction())
 				{
 					var lt = (LayerTable)tr.GetObject(doc.Database.LayerTableId, OpenMode.ForRead);
@@ -290,7 +279,7 @@ namespace TPL
 					{
 						try
 						{
-							using var docLock = _markerDoc.LockDocument();
+							using var docLock = new SafeDocLock(_markerDoc);
 							foreach (var obj in transientObjects)
 							{ try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
 						}
@@ -307,7 +296,7 @@ namespace TPL
 				{
 					try
 					{
-						using var docLock = currentDoc.LockDocument();
+						using var docLock = new SafeDocLock(currentDoc);
 						foreach (var obj in list)
 						{ try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
 					}
@@ -325,7 +314,7 @@ namespace TPL
 				if (doc == null || doc.IsDisposed) continue;
 				try
 				{
-					using (var docLock = doc.LockDocument())
+					using (var docLock = new SafeDocLock(doc))
 					using (var tr = doc.Database.TransactionManager.StartTransaction())
 					{
 						var bt = (BlockTable)tr.GetObject(doc.Database.BlockTableId, OpenMode.ForRead);
