@@ -291,21 +291,6 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding SourceLabel}" Value="DUMMY">
-                    <Setter Property="Height" Value="28"/>
-                    <Setter Property="Focusable" Value="False"/>
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="{x:Type ListViewItem}">
-                                <Rectangle Margin="2" RadiusX="4" RadiusY="4" 
-                                           Stroke="#60A5FA" StrokeThickness="1.5" StrokeDashArray="4 3" 
-                                           Fill="#1560A5FA"/>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </DataTrigger>
-            </Style.Triggers>
         </Style>
 
     </Window.Resources>
@@ -431,8 +416,10 @@
                               AllowDrop="True"
                               SelectionChanged="LstPages_SelectionChanged"
                               PreviewMouseLeftButtonDown="LstPages_PreviewMouseLeftButtonDown"
+                              PreviewMouseLeftButtonUp="LstPages_PreviewMouseLeftButtonUp"
                               PreviewMouseMove="LstPages_PreviewMouseMove"
                               DragOver="LstPages_DragOver"
+                              DragLeave="LstPages_DragLeave"
                               Drop="LstPages_Drop"
                               ItemContainerStyle="{StaticResource PdfPageItemStyle}"
                               ScrollViewer.HorizontalScrollBarVisibility="Auto" d:ItemsSource="{d:SampleData ItemCount=5}">

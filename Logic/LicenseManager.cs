@@ -407,7 +407,7 @@ namespace TPL
 
 				// 3. Giải nén 10 bytes
 				int days = (payload[0] << 8) | payload[1];
-				
+
 				byte[] shortHwIdBytes = new byte[4];
 				Array.Copy(payload, 2, shortHwIdBytes, 0, 4);
 				StringBuilder sbHw = new();
@@ -432,7 +432,7 @@ namespace TPL
 				// 5. Xác thực chữ ký số
 				string textToHash = $"{shortHwIdHex}|{days}|{seqByte}|{SecretKey}";
 				byte[] hashBytes = GetHashSha256(textToHash);
-				
+
 				for (int i = 0; i < 3; i++)
 				{
 					if (providedSigBytes[i] != hashBytes[i])

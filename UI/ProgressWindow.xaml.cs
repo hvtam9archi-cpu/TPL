@@ -24,7 +24,7 @@ namespace TPL
 					: "0%";
 				txtSubTitle.Text = subLabel;
 			}));
-			
+
 			// Process message pump to avoid window ghosting/freezing
 			AllowUIToUpdate();
 		}
