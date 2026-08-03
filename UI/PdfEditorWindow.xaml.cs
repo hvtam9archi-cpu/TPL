@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -125,9 +126,17 @@ namespace TPL
 		private DropInsertionAdorner _dropInsertionAdorner;
 
 		// PDF Viewer (WinForms control hosted via WindowsFormsHost)
+		private static readonly int[] StandardZoomPercentages =
+		{
+			10, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500
+		};
+		private readonly ObservableCollection<int> _zoomPercentOptions = new(StandardZoomPercentages);
 		private readonly PdfViewer _pdfViewer;
 		private MemoryStream _currentPreviewStream;
 		private int _previewRequestId;
+		private int? _customZoomPercentage;
+		private bool _isUpdatingZoomSelection;
+		private HwndSource _hwndSource;
 
 		// ─── Constructor ────────────────────────────────────────────────────
 		private PdfEditorWindow()
@@ -139,10 +148,17 @@ namespace TPL
 			{
 				ShowToolbar = false,
 				ShowBookmarks = false,
-				Dock = System.Windows.Forms.DockStyle.Fill
+				Dock = System.Windows.Forms.DockStyle.Fill,
+				BackColor = System.Drawing.Color.FromArgb(0x18, 0x1A, 0x1F)
 			};
+			_pdfViewer.Renderer.BackColor = System.Drawing.Color.FromArgb(0x18, 0x1A, 0x1F);
 			_pdfViewer.Renderer.MouseWheelMode = MouseWheelMode.Zoom;
+			_pdfViewer.Renderer.ZoomChanged += PdfRenderer_ZoomChanged;
+			_pdfViewer.Renderer.HandleCreated += PdfRenderer_HandleCreated;
+			cmbZoomPercent.ItemsSource = _zoomPercentOptions;
 			pdfHost.Child = _pdfViewer;
+			UpdateZoomControls();
+			UpdateWindowStateVisual();
 
 			lstPages.ItemsSource = _pages;
 
@@ -152,26 +168,107 @@ namespace TPL
 		// ─── Resize Flicker Fix ─────────────────────────────────────────────
 		private void PdfEditorWindow_SourceInitialized(object sender, EventArgs e)
 		{
-			var hwndSource = PresentationSource.FromVisual(this) as HwndSource;
-			hwndSource?.AddHook(HwndHook);
+			_hwndSource = PresentationSource.FromVisual(this) as HwndSource;
+			_hwndSource?.AddHook(HwndHook);
 		}
 
+		private const int WM_GETMINMAXINFO = 0x0024;
 		private const int WM_ENTERSIZEMOVE = 0x0231;
 		private const int WM_EXITSIZEMOVE = 0x0232;
+		private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
 
 		private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
 		{
-			if (msg == WM_ENTERSIZEMOVE)
+			try
 			{
-				// Ẩn WinFormsHost khi bắt đầu co kéo để chống nhấp nháy (airspace flicker)
-				pdfHost.Visibility = Visibility.Hidden;
+				if (msg == WM_GETMINMAXINFO)
+				{
+					ApplyWindowSizeConstraints(hwnd, lParam);
+					handled = true;
+				}
+				else if (msg == WM_ENTERSIZEMOVE)
+				{
+					// Ẩn WinFormsHost khi bắt đầu co kéo để chống nhấp nháy (airspace flicker)
+					pdfHost.Visibility = Visibility.Hidden;
+				}
+				else if (msg == WM_EXITSIZEMOVE)
+				{
+					// Hiện lại khi thả chuột hoàn tất co kéo
+					pdfHost.Visibility = Visibility.Visible;
+				}
 			}
-			else if (msg == WM_EXITSIZEMOVE)
+			catch (Exception ex)
 			{
-				// Hiện lại khi thả chuột hoàn tất co kéo
-				pdfHost.Visibility = Visibility.Visible;
+				System.Diagnostics.Debug.WriteLine($"[PdfEditor] Window message error: {ex.Message}");
 			}
+
 			return IntPtr.Zero;
+		}
+
+		private void ApplyWindowSizeConstraints(IntPtr hwnd, IntPtr minMaxInfoPointer)
+		{
+			if (minMaxInfoPointer == IntPtr.Zero)
+				return;
+
+			IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+			if (monitor == IntPtr.Zero)
+				return;
+
+			var monitorInfo = new MonitorInfo
+			{
+				Size = Marshal.SizeOf<MonitorInfo>()
+			};
+			if (!GetMonitorInfo(monitor, ref monitorInfo))
+				return;
+
+			MinMaxInfo minMaxInfo = Marshal.PtrToStructure<MinMaxInfo>(minMaxInfoPointer);
+			minMaxInfo.MaxPosition.X = monitorInfo.WorkArea.Left - monitorInfo.MonitorArea.Left;
+			minMaxInfo.MaxPosition.Y = monitorInfo.WorkArea.Top - monitorInfo.MonitorArea.Top;
+			minMaxInfo.MaxSize.X = monitorInfo.WorkArea.Right - monitorInfo.WorkArea.Left;
+			minMaxInfo.MaxSize.Y = monitorInfo.WorkArea.Bottom - monitorInfo.WorkArea.Top;
+
+			// WM_GETMINMAXINFO uses physical pixels, while WPF MinWidth/MinHeight use DIPs.
+			// Preserve the XAML minimum size on the current monitor so the preview toolbar
+			// and footer buttons cannot be clipped by native window resizing.
+			double scaleX = 1.0;
+			double scaleY = 1.0;
+			if (_hwndSource?.CompositionTarget != null)
+			{
+				Matrix transformToDevice = _hwndSource.CompositionTarget.TransformToDevice;
+				scaleX = transformToDevice.M11;
+				scaleY = transformToDevice.M22;
+			}
+
+			minMaxInfo.MinTrackSize.X = Math.Max(
+				minMaxInfo.MinTrackSize.X,
+				(int)Math.Ceiling(MinWidth * scaleX));
+			minMaxInfo.MinTrackSize.Y = Math.Max(
+				minMaxInfo.MinTrackSize.Y,
+				(int)Math.Ceiling(MinHeight * scaleY));
+			Marshal.StructureToPtr(minMaxInfo, minMaxInfoPointer, false);
+		}
+
+		private void PdfRenderer_HandleCreated(object sender, EventArgs e)
+		{
+			ApplyPdfPreviewTheme();
+		}
+
+		private void ApplyPdfPreviewTheme()
+		{
+			try
+			{
+				PdfRenderer renderer = _pdfViewer.Renderer;
+				if (!renderer.IsHandleCreated)
+					return;
+
+				int result = SetWindowTheme(renderer.Handle, "DarkMode_Explorer", null);
+				if (result < 0)
+					System.Diagnostics.Debug.WriteLine($"[PdfEditor] Native scrollbar theme returned 0x{result:X8}.");
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[PdfEditor] Preview theme error: {ex.Message}");
+			}
 		}
 
 		// ─── Public API ─────────────────────────────────────────────────────
@@ -231,7 +328,9 @@ namespace TPL
 											GroupColor = groupColor,
 											GroupId = currentGroupId,
 											SourceLabel = sourceLabel,
-											DisplayName = string.Format(L10n.T("page_name"), Path.GetFileName(file), i + 1)
+											DisplayName = isAutoGenerated
+												? Path.GetFileName(file)
+												: string.Format(L10n.T("page_name"), Path.GetFileName(file), i + 1)
 										});
 									}
 								}
@@ -316,10 +415,7 @@ namespace TPL
 		{
 			if (e.ClickCount == 2)
 			{
-				// Double-click to maximize/restore
-				WindowState = WindowState == WindowState.Maximized
-					? WindowState.Normal
-					: WindowState.Maximized;
+				ToggleMaximizedState();
 			}
 			else
 			{
@@ -328,8 +424,33 @@ namespace TPL
 		}
 
 		private void BtnMinimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-		private void BtnMaximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+		private void BtnMaximize_Click(object sender, RoutedEventArgs e) => ToggleMaximizedState();
 		private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
+
+		private void ToggleMaximizedState()
+		{
+			if (WindowState == WindowState.Maximized)
+				SystemCommands.RestoreWindow(this);
+			else
+				SystemCommands.MaximizeWindow(this);
+		}
+
+		protected override void OnStateChanged(EventArgs e)
+		{
+			base.OnStateChanged(e);
+			UpdateWindowStateVisual();
+		}
+
+		private void UpdateWindowStateVisual()
+		{
+			if (iconMaximize == null || iconWindowed == null || btnMaximize == null)
+				return;
+
+			bool isMaximized = WindowState == WindowState.Maximized;
+			iconMaximize.Visibility = isMaximized ? Visibility.Collapsed : Visibility.Visible;
+			iconWindowed.Visibility = isMaximized ? Visibility.Visible : Visibility.Collapsed;
+			btnMaximize.ToolTip = isMaximized ? "Restore window" : "Maximize";
+		}
 
 		protected override void OnKeyDown(KeyEventArgs e)
 		{
@@ -388,6 +509,7 @@ namespace TPL
 
 					_currentPreviewStream = ms;
 					_pdfViewer.Document = pdfDoc;
+					UpdateZoomControls();
 
 					oldDoc?.Dispose();
 					oldStream?.Dispose();
@@ -402,6 +524,120 @@ namespace TPL
 			{
 				// Không có trang nào được chọn → hiện placeholder
 				txtNoPreview.Visibility = Visibility.Visible;
+				UpdateZoomControls();
+			}
+		}
+
+		private void BtnZoomOut_Click(object sender, RoutedEventArgs e)
+		{
+			if (_pdfViewer.Document != null)
+				SetPreviewZoom(_pdfViewer.Renderer.Zoom / _pdfViewer.Renderer.ZoomFactor);
+		}
+
+		private void BtnZoomIn_Click(object sender, RoutedEventArgs e)
+		{
+			if (_pdfViewer.Document != null)
+				SetPreviewZoom(_pdfViewer.Renderer.Zoom * _pdfViewer.Renderer.ZoomFactor);
+		}
+
+		private void CmbZoomPercent_SelectionChanged(object sender, SelectionChangedEventArgs e)
+		{
+			if (_isUpdatingZoomSelection || cmbZoomPercent.SelectedItem is not int zoomPercent)
+				return;
+
+			SetPreviewZoom(zoomPercent / 100d);
+		}
+
+		private void SetPreviewZoom(double requestedZoom)
+		{
+			PdfRenderer renderer = _pdfViewer.Renderer;
+			if (_pdfViewer.Document == null || renderer.ClientSize.Width <= 0 || renderer.ClientSize.Height <= 0)
+				return;
+
+			double targetZoom = Math.Min(Math.Max(requestedZoom, renderer.ZoomMin), renderer.ZoomMax);
+			if (Math.Abs(targetZoom - renderer.Zoom) < 0.0001)
+				return;
+
+			var viewportCenter = new System.Drawing.Point(
+				renderer.ClientSize.Width / 2,
+				renderer.ClientSize.Height / 2);
+			PdfPoint pdfAnchor = renderer.PointToPdf(viewportCenter);
+			System.Drawing.Rectangle oldDisplay = renderer.DisplayRectangle;
+			double fallbackX = oldDisplay.Width > 0
+				? (viewportCenter.X - oldDisplay.Left) / (double)oldDisplay.Width
+				: 0.5;
+			double fallbackY = oldDisplay.Height > 0
+				? (viewportCenter.Y - oldDisplay.Top) / (double)oldDisplay.Height
+				: 0.5;
+
+			renderer.Zoom = targetZoom;
+
+			System.Drawing.Rectangle newDisplay = renderer.DisplayRectangle;
+			System.Drawing.Point targetDisplayLocation;
+			if (pdfAnchor.IsValid)
+			{
+				System.Drawing.Point movedAnchor = renderer.PointFromPdf(pdfAnchor);
+				targetDisplayLocation = new System.Drawing.Point(
+					newDisplay.Left + viewportCenter.X - movedAnchor.X,
+					newDisplay.Top + viewportCenter.Y - movedAnchor.Y);
+			}
+			else
+			{
+				targetDisplayLocation = new System.Drawing.Point(
+					(int)Math.Round(viewportCenter.X - (fallbackX * newDisplay.Width)),
+					(int)Math.Round(viewportCenter.Y - (fallbackY * newDisplay.Height)));
+			}
+
+			renderer.SetDisplayRectLocation(targetDisplayLocation, false);
+		}
+
+		private void PdfRenderer_ZoomChanged(object sender, EventArgs e)
+		{
+			UpdateZoomControls();
+		}
+
+		private void UpdateZoomControls()
+		{
+			if (!Dispatcher.CheckAccess())
+			{
+				Dispatcher.BeginInvoke(new Action(UpdateZoomControls));
+				return;
+			}
+
+			double zoom = _pdfViewer.Renderer.Zoom;
+			int zoomPercent = (int)Math.Round(zoom * 100, MidpointRounding.AwayFromZero);
+			bool hasDocument = _pdfViewer.Document != null && lstPages.SelectedItem is PdfPageViewModel;
+
+			UpdateZoomPercentageSelection(zoomPercent);
+			cmbZoomPercent.IsEnabled = hasDocument;
+			btnZoomOut.IsEnabled = hasDocument && zoom > _pdfViewer.Renderer.ZoomMin;
+			btnZoomIn.IsEnabled = hasDocument && zoom < _pdfViewer.Renderer.ZoomMax;
+		}
+
+		private void UpdateZoomPercentageSelection(int zoomPercent)
+		{
+			_isUpdatingZoomSelection = true;
+			try
+			{
+				bool isStandardZoom = Array.BinarySearch(StandardZoomPercentages, zoomPercent) >= 0;
+				if (_customZoomPercentage.HasValue && _customZoomPercentage.Value != zoomPercent)
+					_zoomPercentOptions.Remove(_customZoomPercentage.Value);
+
+				if (!_zoomPercentOptions.Contains(zoomPercent))
+				{
+					int insertIndex = 0;
+					while (insertIndex < _zoomPercentOptions.Count && _zoomPercentOptions[insertIndex] < zoomPercent)
+						insertIndex++;
+
+					_zoomPercentOptions.Insert(insertIndex, zoomPercent);
+				}
+
+				_customZoomPercentage = isStandardZoom ? null : zoomPercent;
+				cmbZoomPercent.SelectedItem = zoomPercent;
+			}
+			finally
+			{
+				_isUpdatingZoomSelection = false;
 			}
 		}
 
@@ -480,6 +716,7 @@ namespace TPL
 					_pdfViewer.Document = null;
 					oldDoc?.Dispose();
 					txtNoPreview.Visibility = Visibility.Visible;
+					UpdateZoomControls();
 				}
 			}
 			finally
@@ -875,6 +1112,11 @@ namespace TPL
 			ClearDropIndicator();
 		}
 
+		private void LstPages_SizeChanged(object sender, SizeChangedEventArgs e)
+		{
+			UpdatePageColumnWidth();
+		}
+
 		private void AutoScrollPageList(Point pointerPosition)
 		{
 			bool scrollUp = pointerPosition.Y < AutoScrollBoundary;
@@ -1042,17 +1284,29 @@ namespace TPL
 			int maxDigits = _pages.Count.ToString().Length;
 			double needed = Math.Max(35, maxDigits * 8 + 10);
 
-			if (lstPages.View is GridView gridView && gridView.Columns.Count >= 4)
+			if (lstPages.View is GridView gridView && gridView.Columns.Count > 0)
 			{
 				// Thay đổi chiều rộng cột #
 				gridView.Columns[0].Width = needed;
-
-				// Thay đổi chiều rộng cột Page để tự động fit chữ dài nhất
-				if (double.IsNaN(gridView.Columns[3].Width))
-					gridView.Columns[3].Width = gridView.Columns[3].ActualWidth;
-
-				gridView.Columns[3].Width = double.NaN; // Force Auto size
 			}
+
+			UpdatePageColumnWidth();
+		}
+
+		private void UpdatePageColumnWidth()
+		{
+			if (lstPages.ActualWidth <= 0 ||
+				lstPages.View is not GridView gridView ||
+				gridView.Columns.Count < 4)
+				return;
+
+			double fixedColumnsWidth = 0;
+			for (int i = 0; i < 3; i++)
+				fixedColumnsWidth += gridView.Columns[i].ActualWidth;
+
+			double reservedWidth = SystemParameters.VerticalScrollBarWidth + 8;
+			double availableWidth = lstPages.ActualWidth - fixedColumnsWidth - reservedWidth;
+			gridView.Columns[3].Width = Math.Max(90, availableWidth);
 		}
 
 		/// <summary>Tạo màu pastel theo golden angle để phân biệt nhóm PDF.</summary>
@@ -1100,13 +1354,23 @@ namespace TPL
 			// Cleanup PDF viewer
 			try
 			{
+				if (_hwndSource != null)
+				{
+					_hwndSource.RemoveHook(HwndHook);
+					_hwndSource = null;
+				}
+				_pdfViewer.Renderer.HandleCreated -= PdfRenderer_HandleCreated;
+				_pdfViewer.Renderer.ZoomChanged -= PdfRenderer_ZoomChanged;
 				var oldDoc = _pdfViewer?.Document;
 				if (_pdfViewer != null) _pdfViewer.Document = null;
 				oldDoc?.Dispose();
 				_currentPreviewStream?.Dispose();
 				_currentPreviewStream = null;
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[PdfEditor] Preview cleanup error: {ex.Message}");
+			}
 
 			// Xoá file tạm
 			foreach (string file in _autoGeneratedFiles)
@@ -1127,6 +1391,51 @@ namespace TPL
 			}
 
 			base.OnClosed(e);
+		}
+
+		[DllImport("user32.dll")]
+		private static extern IntPtr MonitorFromWindow(IntPtr windowHandle, uint flags);
+
+		[DllImport("user32.dll", CharSet = CharSet.Auto)]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static extern bool GetMonitorInfo(IntPtr monitorHandle, ref MonitorInfo monitorInfo);
+
+		[DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+		private static extern int SetWindowTheme(IntPtr windowHandle, string subAppName, string subIdList);
+
+		[StructLayout(LayoutKind.Sequential)]
+		private struct NativePoint
+		{
+			public int X;
+			public int Y;
+		}
+
+		[StructLayout(LayoutKind.Sequential)]
+		private struct MinMaxInfo
+		{
+			public NativePoint Reserved;
+			public NativePoint MaxSize;
+			public NativePoint MaxPosition;
+			public NativePoint MinTrackSize;
+			public NativePoint MaxTrackSize;
+		}
+
+		[StructLayout(LayoutKind.Sequential)]
+		private struct NativeRectangle
+		{
+			public int Left;
+			public int Top;
+			public int Right;
+			public int Bottom;
+		}
+
+		[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+		private struct MonitorInfo
+		{
+			public int Size;
+			public NativeRectangle MonitorArea;
+			public NativeRectangle WorkArea;
+			public uint Flags;
 		}
 	}
 
