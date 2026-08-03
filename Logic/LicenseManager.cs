@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Management;
-using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 
+#pragma warning disable IDE0130 // Public license API intentionally remains in the TPL root namespace.
 namespace TPL
 {
 	public class LicenseInfo
@@ -77,6 +78,34 @@ namespace TPL
 			Timeout = TimeSpan.FromSeconds(10)
 		};
 
+		private static bool ContainsQueryDelimiter(string value)
+		{
+#if NET8_0_OR_GREATER
+			return value.Contains('?');
+#else
+			return value.IndexOf('?') >= 0;
+#endif
+		}
+
+		private static bool ContainsOrdinalIgnoreCase(string value, string substring)
+		{
+#if NET8_0_OR_GREATER
+			return value.Contains(substring, StringComparison.OrdinalIgnoreCase);
+#else
+			return value.IndexOf(substring, StringComparison.OrdinalIgnoreCase) >= 0;
+#endif
+		}
+
+		private static string TakeFirst(string value, int maximumLength)
+		{
+			int length = Math.Min(maximumLength, value.Length);
+#if NET8_0_OR_GREATER
+			return value[..length];
+#else
+			return value.Substring(0, length);
+#endif
+		}
+
 		public static void CheckRemoteRevokeAsync()
 		{
 			if (string.IsNullOrEmpty(RevokeListUrl) || !RevokeListUrl.StartsWith("http")) return;
@@ -86,7 +115,7 @@ namespace TPL
 				try
 				{
 					// Chống cache: thêm timestamp vào URL
-					string url = RevokeListUrl + (RevokeListUrl.Contains("?") ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
+					string url = RevokeListUrl + (ContainsQueryDelimiter(RevokeListUrl) ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
 
 					using var request = new HttpRequestMessage(HttpMethod.Get, url);
 					request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
@@ -95,18 +124,18 @@ namespace TPL
 					response.EnsureSuccessStatusCode();
 					string data = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-					string hwId = GetHardwareId().ToUpper();
-					string cleanData = data.Replace("-", "").Replace(" ", "").ToUpper();
+					string hwId = GetHardwareId();
+					string cleanData = data.Replace("-", "").Replace(" ", "");
 
 					// Lấy license info 1 lần duy nhất
 					LicenseInfo info = GetLicenseInfo();
 
-					bool isRevoked = cleanData.Contains(hwId);
+					bool isRevoked = ContainsOrdinalIgnoreCase(cleanData, hwId);
 					if (!isRevoked)
 					{
 						foreach (string key in info.AppliedKeys)
 						{
-							if (!string.IsNullOrEmpty(key) && cleanData.Contains(key.ToUpper()))
+							if (!string.IsNullOrEmpty(key) && ContainsOrdinalIgnoreCase(cleanData, key))
 							{ isRevoked = true; break; }
 						}
 					}
@@ -122,7 +151,7 @@ namespace TPL
 						}
 
 						// Dọn dẹp: xoá các key bị thu hồi khỏi AppliedKeys
-						info.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && cleanData.Contains(k.ToUpper()));
+						info.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && ContainsOrdinalIgnoreCase(cleanData, k));
 						SaveLicenseInfo(info);
 					}
 					else
@@ -138,7 +167,7 @@ namespace TPL
 
 		/// <summary>
 		/// Kiểm tra revoke đồng bộ — gọi TRỰC TIẾP từ ActivateLicense.
-		/// Dùng WebClient (sync) để tránh deadlock, timeout 5 giây.
+		/// Dùng HttpClient đồng bộ, timeout 10 giây, không tạo kết nối mới mỗi lần kiểm tra.
 		/// Lớp bảo vệ cuối: dù user xoá registry, key mới vẫn bị chặn
 		/// nếu HWID hoặc key cũ còn trong revoke list từ xa.
 		/// Đồng thời dọn dẹp AppliedKeys nếu phát hiện key bị thu hồi.
@@ -150,21 +179,23 @@ namespace TPL
 
 			try
 			{
-				string url = RevokeListUrl + (RevokeListUrl.Contains("?") ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
+				string url = RevokeListUrl + (ContainsQueryDelimiter(RevokeListUrl) ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
 
-				using var webClient = new WebClient();
-				webClient.Headers.Add("Cache-Control", "no-cache");
-				string data = webClient.DownloadString(url);
+				using var request = new HttpRequestMessage(HttpMethod.Get, url);
+				request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
+				using var response = _httpClient.SendAsync(request).ConfigureAwait(false).GetAwaiter().GetResult();
+				response.EnsureSuccessStatusCode();
+				string data = response.Content.ReadAsStringAsync().ConfigureAwait(false).GetAwaiter().GetResult();
 
-				string hwId = GetHardwareId().ToUpper();
-				string cleanData = data.Replace("-", "").Replace(" ", "").ToUpper();
+				string hwId = GetHardwareId();
+				string cleanData = data.Replace("-", "").Replace(" ", "");
 
 				// Kiểm tra HWID
-				if (cleanData.Contains(hwId))
+				if (ContainsOrdinalIgnoreCase(cleanData, hwId))
 				{
 					var info = GetLicenseInfo();
 					// Dọn key bị thu hồi khỏi AppliedKeys
-					info.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && cleanData.Contains(k.ToUpper()));
+					info.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && ContainsOrdinalIgnoreCase(cleanData, k));
 					// Đánh dấu thu hồi vĩnh viễn ngay lập tức
 					if (!info.IsPermanentlyRevoked)
 					{
@@ -180,14 +211,14 @@ namespace TPL
 				bool found = false;
 				foreach (string key in info2.AppliedKeys)
 				{
-					if (!string.IsNullOrEmpty(key) && cleanData.Contains(key.ToUpper()))
+					if (!string.IsNullOrEmpty(key) && ContainsOrdinalIgnoreCase(cleanData, key))
 					{ found = true; break; }
 				}
 
 				if (found)
 				{
 					// Dọn key bị thu hồi khỏi AppliedKeys
-					info2.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && cleanData.Contains(k.ToUpper()));
+					info2.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && ContainsOrdinalIgnoreCase(cleanData, k));
 					// Đánh dấu thu hồi vĩnh viễn
 					if (!info2.IsPermanentlyRevoked)
 					{
@@ -249,7 +280,7 @@ namespace TPL
 		{
 			try
 			{
-				using ManagementObjectSearcher searcher = new($"SELECT {property} FROM {wmiclass}");
+				ManagementObjectSearcher searcher = new($"SELECT {property} FROM {wmiclass}");
 				foreach (ManagementBaseObject obj in searcher.Get())
 				{
 					return obj[property]?.ToString()?.Trim() ?? "";
@@ -261,11 +292,20 @@ namespace TPL
 
 		private static string ComputeMD5(string input)
 		{
-			using MD5 md5 = MD5.Create();
-			byte[] bytes = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
+			byte[] bytes = ComputeMd5Hash(Encoding.UTF8.GetBytes(input));
 			StringBuilder sb = new();
 			foreach (byte b in bytes) sb.Append(b.ToString("x2"));
 			return sb.ToString();
+		}
+
+		private static byte[] ComputeMd5Hash(byte[] input)
+		{
+#if NET8_0_OR_GREATER
+			return MD5.HashData(input);
+#else
+			using (MD5 md5 = MD5.Create())
+				return md5.ComputeHash(input);
+#endif
 		}
 
 		public static LicenseInfo GetLicenseInfo()
@@ -370,7 +410,7 @@ namespace TPL
 				
 				byte[] shortHwIdBytes = new byte[4];
 				Array.Copy(payload, 2, shortHwIdBytes, 0, 4);
-				StringBuilder sbHw = new StringBuilder();
+				StringBuilder sbHw = new();
 				foreach (byte b in shortHwIdBytes) sbHw.Append(b.ToString("X2"));
 				string shortHwIdHex = sbHw.ToString();
 
@@ -381,7 +421,7 @@ namespace TPL
 
 				// 4. Xác thực máy tính hiện tại
 				string myHwId = GetHardwareId();
-				string myShortHwIdHex = myHwId.Substring(0, Math.Min(8, myHwId.Length)).ToUpper();
+				string myShortHwIdHex = TakeFirst(myHwId, 8).ToUpper();
 
 				if (shortHwIdHex != myShortHwIdHex)
 				{
@@ -473,7 +513,7 @@ namespace TPL
 		public static string GenerateKey(string hwId, int days, string seq = "")
 		{
 			// 1. Lấy 8 ký tự đầu của Hardware ID và chuyển sang mảng 4 bytes
-			string shortHwIdHex = hwId.Substring(0, Math.Min(8, hwId.Length)).ToUpper().PadRight(8, '0');
+			string shortHwIdHex = TakeFirst(hwId, 8).ToUpper().PadRight(8, '0');
 			byte[] shortHwIdBytes = new byte[4];
 			for (int i = 0; i < 4; i++)
 			{
@@ -514,12 +554,12 @@ namespace TPL
 			string rawBase32 = Base32.Encode(payload);
 
 			// 7. Format thành XXXX-XXXX-XXXX-XXXX
-			StringBuilder formatted = new StringBuilder();
+			StringBuilder formatted = new();
 			for (int i = 0; i < 16; i++)
 			{
 				if (i > 0 && i % 4 == 0)
 				{
-					formatted.Append("-");
+					formatted.Append('-');
 				}
 				formatted.Append(rawBase32[i]);
 			}
@@ -528,8 +568,7 @@ namespace TPL
 
 		private static string ComputeSHA256String(string text)
 		{
-			using SHA256 sha256 = SHA256.Create();
-			byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(text));
+			byte[] bytes = ComputeSha256Hash(Encoding.UTF8.GetBytes(text));
 			StringBuilder sb = new();
 			foreach (byte b in bytes) sb.Append(b.ToString("X2"));
 			return sb.ToString();
@@ -537,8 +576,17 @@ namespace TPL
 
 		private static byte[] GetHashSha256(string text)
 		{
-			using SHA256 sha256 = SHA256.Create();
-			return sha256.ComputeHash(Encoding.UTF8.GetBytes(text));
+			return ComputeSha256Hash(Encoding.UTF8.GetBytes(text));
+		}
+
+		private static byte[] ComputeSha256Hash(byte[] input)
+		{
+#if NET8_0_OR_GREATER
+			return SHA256.HashData(input);
+#else
+			using (SHA256 sha256 = SHA256.Create())
+				return sha256.ComputeHash(input);
+#endif
 		}
 
 		private static string Encrypt(string plainText)
@@ -579,6 +627,15 @@ namespace TPL
 	{
 		private const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
+		private static bool IsBase32Character(char value)
+		{
+#if NET8_0_OR_GREATER
+			return Alphabet.Contains(value);
+#else
+			return Alphabet.IndexOf(value) >= 0;
+#endif
+		}
+
 		public static string Encode(byte[] data)
 		{
 			if (data == null || data.Length != 10)
@@ -606,11 +663,12 @@ namespace TPL
 
 		public static byte[] Decode(string input)
 		{
-			StringBuilder sb = new StringBuilder();
-			foreach (char c in input.ToUpper())
+			StringBuilder sb = new();
+			foreach (char c in input)
 			{
-				if (Alphabet.IndexOf(c) >= 0)
-					sb.Append(c);
+				char normalized = char.ToUpperInvariant(c);
+				if (IsBase32Character(normalized))
+					sb.Append(normalized);
 			}
 			string sanitized = sb.ToString();
 			if (sanitized.Length != 16)

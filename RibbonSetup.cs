@@ -15,6 +15,7 @@ namespace TPL
 
 		public void Initialize()
 		{
+			MainWindow.SubscribeGlobalMarkerEvents();
 			Application.Idle += Application_Idle;
 			Application.SystemVariableChanged += Application_SystemVariableChanged;
 		}
@@ -23,6 +24,7 @@ namespace TPL
 		{
 			Application.Idle -= Application_Idle;
 			Application.SystemVariableChanged -= Application_SystemVariableChanged;
+			MainWindow.UnsubscribeGlobalMarkerEvents();
 		}
 
 		private void Application_Idle(object sender, EventArgs e)

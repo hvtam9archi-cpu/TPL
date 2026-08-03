@@ -23,24 +23,25 @@ namespace TPL
 		private Document _markerDoc;
 		private Document _selectionDoc;
 		private static readonly Dictionary<Document, List<DBObject>> _pendingTransients = new();
+		private readonly Dictionary<Database, List<ObjectId>> _permanentMarkerIds = new();
+		private readonly HashSet<Database> _initializedMarkerCleanup = new();
 		private static bool _globalEventsSubscribed = false;
+		private bool _previewRefreshQueued;
+		private int _frameDataRevision;
+		private int _cachedFrameDataRevision = -1;
+		private Database _cachedFrameDatabase;
+		private string _cachedLayoutName = string.Empty;
+		private PlotHelper.FrameType _cachedFrameType;
+		private PlotHelper.SelectionMode _cachedSelectionMode;
+		private string[] _cachedFrameNames = Array.Empty<string>();
+		private ObjectId[] _cachedManualSelectionIds = Array.Empty<ObjectId>();
+		private readonly List<PlotFrame> _cachedFrames = new();
 
 		public MainWindow()
 		{
 			try { L10n.Init(); } catch { }
 			_previewDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
 			_previewDebounce.Tick += (s, e) => { _previewDebounce.Stop(); try { UpdatePreview(); } catch { } };
-
-			if (!_globalEventsSubscribed)
-			{
-				try
-				{
-					Application.DocumentManager.DocumentActivated += GlobalDocumentActivated;
-					Application.DocumentManager.DocumentToBeDestroyed += GlobalDocumentToBeDestroyed;
-					_globalEventsSubscribed = true;
-				}
-				catch { }
-			}
 
 			InitializeComponent();
 
@@ -101,7 +102,7 @@ namespace TPL
 			// PDF/Image post-processing options
 			if (chkMergePdf != null) { chkMergePdf.IsEnabled = isFilePrinter; if (!isFilePrinter) chkMergePdf.IsChecked = false; }
 			if (chkPdfEditor != null) { chkPdfEditor.IsEnabled = isFilePrinter; if (!isFilePrinter) chkPdfEditor.IsChecked = false; }
-			UpdateOpenPdfState();
+			UpdateOpenPdfState(isFilePrinter);
 			if (chkConvertImage != null) { chkConvertImage.IsEnabled = isFilePrinter; if (!isFilePrinter) chkConvertImage.IsChecked = false; }
 			if (pnlImgFormat != null) pnlImgFormat.IsEnabled = isFilePrinter && chkConvertImage.IsChecked == true;
 
@@ -112,11 +113,11 @@ namespace TPL
 			if (!isFilePrinter && rbOrientAuto != null) rbOrientAuto.IsChecked = true;
 		}
 
-		private void UpdateOpenPdfState()
+		private void UpdateOpenPdfState(bool? filePrinterState = null)
 		{
 			if (chkOpenPdf == null) return;
-			bool isFilePrinter = true;
-			if (cbPrinters != null && cbPrinters.SelectedItem != null)
+			bool isFilePrinter = filePrinterState ?? true;
+			if (!filePrinterState.HasValue && cbPrinters != null && cbPrinters.SelectedItem != null)
 			{
 				isFilePrinter = PlotHelper.IsFilePrinter(cbPrinters.SelectedItem.ToString());
 			}
@@ -319,7 +320,7 @@ namespace TPL
 			data.SelectionMode = rbSelect.IsChecked == true ? PlotHelper.SelectionMode.Manual : PlotHelper.SelectionMode.CurrentLayout;
 			data.GroupOrder = (PlotHelper.SortOrder)(cbOrd1.SelectedIndex >= 0 ? cbOrd1.SelectedIndex : 0);
 			int o2 = cbOrd2.SelectedIndex >= 0 ? cbOrd2.SelectedIndex : 0;
-			data.CrossGroupOrder = (PlotHelper.SortOrder)(o2 == 0 ? 6 : o2 - 1);
+			data.CrossGroupOrder = o2 == 0 ? PlotHelper.SortOrder.None : (PlotHelper.SortOrder)(o2 - 1);
 			data.SortBasePoint = (PlotHelper.BasePoint)(cbBase.SelectedIndex >= 0 ? cbBase.SelectedIndex : 0);
 			data.Fuzz = double.TryParse(txtFuzz.Text, out double f) ? f : 100;
 			data.MarkPlotRegions = chkMark.IsChecked == true;
@@ -381,6 +382,8 @@ namespace TPL
 				if (e.Document != null)
 				{
 					AttachDbEvents(e.Document.Database);
+					ResetFrameCache();
+					TriggerPreviewInternal();
 				}
 			}
 			catch { }
@@ -392,7 +395,11 @@ namespace TPL
 			{
 				if (e.Document != null && !e.Document.IsDisposed)
 				{
-					DetachDbEvents(e.Document.Database);
+					Database db = e.Document.Database;
+					DetachDbEvents(db);
+					_permanentMarkerIds.Remove(db);
+					_initializedMarkerCleanup.Remove(db);
+					if (_cachedFrameDatabase == db) ResetFrameCache();
 				}
 			}
 			catch { }
@@ -420,12 +427,12 @@ namespace TPL
 			if (isInitializing) return;
 			try
 			{
-				if (e.DBObject is BlockReference || e.DBObject is Autodesk.AutoCAD.DatabaseServices.Polyline)
-				{
-					this.Dispatcher.InvokeAsync(() => { TriggerPreviewInternal(); });
-				}
+				if (IsPreviewRelevantDatabaseObject(e.DBObject)) QueueDatabasePreviewRefresh();
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] Database object-change handler error: {ex.Message}");
+			}
 		}
 
 		private void Database_ObjectErased(object sender, ObjectErasedEventArgs e)
@@ -433,12 +440,41 @@ namespace TPL
 			if (isInitializing) return;
 			try
 			{
-				if (e.DBObject is BlockReference || e.DBObject is Autodesk.AutoCAD.DatabaseServices.Polyline)
-				{
-					this.Dispatcher.InvokeAsync(() => { TriggerPreviewInternal(); });
-				}
+				if (IsPreviewRelevantDatabaseObject(e.DBObject)) QueueDatabasePreviewRefresh();
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] Database erase handler error: {ex.Message}");
+			}
+		}
+
+		private static bool IsPreviewRelevantDatabaseObject(DBObject dbObject)
+		{
+			if (dbObject is LayerTableRecord || dbObject is BlockTableRecord) return true;
+			if (dbObject is not Entity entity) return false;
+
+			try
+			{
+				return !string.Equals(entity.Layer, MarkerLayerName, StringComparison.OrdinalIgnoreCase);
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] Cannot inspect changed entity layer: {ex.Message}");
+				return true;
+			}
+		}
+
+		private void QueueDatabasePreviewRefresh()
+		{
+			InvalidateFrameCache();
+			if (_previewRefreshQueued) return;
+
+			_previewRefreshQueued = true;
+			_ = Dispatcher.BeginInvoke(new Action(() =>
+			{
+				_previewRefreshQueued = false;
+				if (IsLoaded) TriggerPreviewInternal();
+			}), DispatcherPriority.Background);
 		}
 
 		private void RbPng_Checked(object sender, RoutedEventArgs e)

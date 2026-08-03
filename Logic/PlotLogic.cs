@@ -17,8 +17,6 @@ namespace TPL
         public ObjectId Id { get; set; }
         public Extents3d Extents { get; set; }
         public string LayoutName { get; set; }
-        public int OrderIndex { get; set; }
-        public string MarkerText { get; set; }
 
         public Point3d GetBasePoint(PlotHelper.BasePoint bpType)
         {
@@ -38,12 +36,36 @@ namespace TPL
         /// <summary>Ngưỡng tối thiểu cho chiều rộng/cao của plot frame (đơn vị drawing).
         /// Frame nhỏ hơn giá trị này sẽ bị bỏ qua vì gây treo PlotEngine.</summary>
         private const double MinFrameDimension = 0.001;
+
+        private sealed class FrameScanCache
+        {
+            public FrameScanCache(IEnumerable<string> frameNames)
+            {
+                FrameNames = new HashSet<string>(frameNames ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+            }
+
+            public HashSet<string> FrameNames { get; }
+            public Dictionary<ObjectId, bool> VisibleLayers { get; } = new();
+            public Dictionary<ObjectId, string> LayoutNames { get; } = new();
+            public Dictionary<ObjectId, string> BlockNames { get; } = new();
+            public Dictionary<ObjectId, List<Extents3d>> BlockDefinitionExtents { get; } = new();
+        }
+
+        private sealed class SortFrame
+        {
+            public PlotFrame Frame { get; init; }
+            public Point3d BasePoint { get; init; }
+            public int OriginalIndex { get; init; }
+            public int GroupIndex { get; set; }
+        }
+
         public static List<PlotFrame> SelectFrames(PlotHelper.PlotSettingsData settings)
         {
             Document doc = Application.DocumentManager.MdiActiveDocument;
             Database db = doc.Database;
             Editor ed = doc.Editor;
             List<PlotFrame> frames = new();
+            var cache = new FrameScanCache(settings.FrameNames);
 
             using (Transaction tr = db.TransactionManager.StartTransaction())
             {
@@ -54,14 +76,14 @@ namespace TPL
                         foreach (ObjectId id in settings.ManualSelectionIds)
                         {
                             if (id.IsErased || id.IsNull) continue;
-                            AddFrame(frames, tr, id, settings);
+                            AddFrame(frames, tr, id, settings, cache);
                         }
                     }
                 }
                 else
                 {
                     string currentLayout = LayoutManager.Current.CurrentLayout;
-                    TypedValue[] filter = GetFilter(settings);
+                    TypedValue[] filter = GetFilter(settings, currentLayout);
                     SelectionFilter selFilter = new(filter);
                     PromptSelectionResult psr = ed.SelectAll(selFilter);
 
@@ -72,18 +94,12 @@ namespace TPL
                             if (id.IsErased || id.IsNull) continue;
                             Entity ent = (Entity)tr.GetObject(id, OpenMode.ForRead, false, true);
                             if (ent == null || ent.IsErased) continue;
-                            string entLayout = "";
-                            BlockTableRecord btr = (BlockTableRecord)tr.GetObject(ent.OwnerId, OpenMode.ForRead);
-                            if (btr.IsLayout)
-                            {
-                                Layout lay = (Layout)tr.GetObject(btr.LayoutId, OpenMode.ForRead);
-                                entLayout = lay.LayoutName;
-                            }
+                            string entLayout = GetLayoutName(ent.OwnerId, tr, cache);
 
-                            if (settings.SelectionMode == PlotHelper.SelectionMode.CurrentLayout && entLayout != currentLayout)
+                            if (!string.Equals(entLayout, currentLayout, StringComparison.OrdinalIgnoreCase))
                                 continue;
 
-                            AddFrame(frames, tr, id, settings, entLayout);
+                            AddFrame(frames, tr, id, settings, cache, entLayout, ent);
                         }
                     }
                 }
@@ -93,7 +109,7 @@ namespace TPL
             return frames;
         }
 
-        public static TypedValue[] GetFilter(PlotHelper.PlotSettingsData settings)
+        public static TypedValue[] GetFilter(PlotHelper.PlotSettingsData settings, string layoutName = null)
         {
             if (settings.FrameType == PlotHelper.FrameType.Block)
             {
@@ -103,55 +119,67 @@ namespace TPL
                 if (!string.IsNullOrEmpty(blockNameFilter))
                 {
                     blockNameFilter += ",`*U*"; // backtick escape ký tự * đầu tiên cho AutoCAD wildcard
-                    return new TypedValue[] {
+                    return AddLayoutFilter(new TypedValue[] {
                         new((int)DxfCode.Start, "INSERT"),
                         new((int)DxfCode.BlockName, blockNameFilter)
-                    };
+                    }, layoutName);
                 }
-                return new TypedValue[] { new((int)DxfCode.Start, "INSERT") };
+                return AddLayoutFilter(new TypedValue[] { new((int)DxfCode.Start, "INSERT") }, layoutName);
             }
             else
             {
                 string layerNames = string.Join(",", settings.FrameNames);
                 if (string.IsNullOrEmpty(layerNames)) layerNames = "*";
-                return new TypedValue[] {
+                return AddLayoutFilter(new TypedValue[] {
                     new((int)DxfCode.Start, "LWPOLYLINE"),
                     new((int)DxfCode.LayerName, layerNames)
-                };
+                }, layoutName);
             }
         }
 
-        private static void AddFrame(List<PlotFrame> frames, Transaction tr, ObjectId id, PlotHelper.PlotSettingsData settings, string layoutName = "")
+        private static TypedValue[] AddLayoutFilter(TypedValue[] entityFilter, string layoutName)
+        {
+            if (string.IsNullOrWhiteSpace(layoutName)) return entityFilter;
+
+            var result = new TypedValue[entityFilter.Length + 1];
+            Array.Copy(entityFilter, result, entityFilter.Length);
+            result[result.Length - 1] = new TypedValue((int)DxfCode.LayoutName, layoutName);
+            return result;
+        }
+
+        private static void AddFrame(
+            List<PlotFrame> frames,
+            Transaction tr,
+            ObjectId id,
+            PlotHelper.PlotSettingsData settings,
+            FrameScanCache cache,
+            string layoutName = "",
+            Entity loadedEntity = null)
         {
             if (id.IsErased || id.IsNull) return;
-            Entity ent = tr.GetObject(id, OpenMode.ForRead, false, true) as Entity;
+            Entity ent = loadedEntity ?? tr.GetObject(id, OpenMode.ForRead, false, true) as Entity;
             if (ent == null || ent.IsErased) return;
 
             // FastSetVisibility pattern: skip hidden / layer-off / layer-frozen objects
             if (!ent.Visible) return;
-            try
-            {
-                LayerTableRecord layer = (LayerTableRecord)tr.GetObject(ent.LayerId, OpenMode.ForRead);
-                if (layer.IsOff || layer.IsFrozen) return;
-            }
-            catch { }
+            if (!IsLayerVisible(ent.LayerId, tr, cache)) return;
 
             Extents3d extents;
             if (settings.FrameType == PlotHelper.FrameType.Block)
             {
                 BlockReference br = ent as BlockReference;
                 if (br == null) return;
-                string name = GetBlockName(br, tr);
-                if (!settings.FrameNames.Any(fn => string.Equals(name, fn, StringComparison.OrdinalIgnoreCase))) return;
-                if (string.IsNullOrEmpty(layoutName)) layoutName = GetLayoutName(ent.OwnerId, tr);
-                try { extents = CalculateBlockExtents(br, tr); }
+                string name = GetBlockName(br, tr, cache);
+                if (!cache.FrameNames.Contains(name)) return;
+                if (string.IsNullOrEmpty(layoutName)) layoutName = GetLayoutName(ent.OwnerId, tr, cache);
+                try { extents = CalculateBlockExtents(br, tr, cache); }
                 catch { return; } // Block không có extents hợp lệ
             }
             else
             {
                 Polyline pl = ent as Polyline;
                 if (pl == null) return;
-                if (string.IsNullOrEmpty(layoutName)) layoutName = GetLayoutName(ent.OwnerId, tr);
+                if (string.IsNullOrEmpty(layoutName)) layoutName = GetLayoutName(ent.OwnerId, tr, cache);
                 try { extents = pl.GeometricExtents; }
                 catch { return; } // Polyline không có extents hợp lệ
             }
@@ -169,25 +197,57 @@ namespace TPL
             frames.Add(new PlotFrame { Id = id, Extents = extents, LayoutName = layoutName });
         }
 
-        private static string GetBlockName(BlockReference br, Transaction tr)
+        private static string GetBlockName(BlockReference br, Transaction tr, FrameScanCache cache)
         {
             if (br.IsDynamicBlock)
             {
+                if (cache.BlockNames.TryGetValue(br.DynamicBlockTableRecord, out string blockName))
+                    return blockName;
+
                 BlockTableRecord btr = (BlockTableRecord)tr.GetObject(br.DynamicBlockTableRecord, OpenMode.ForRead);
-                return btr.Name;
+                blockName = btr.Name;
+                cache.BlockNames[br.DynamicBlockTableRecord] = blockName;
+                return blockName;
             }
             return br.Name;
         }
 
-        private static string GetLayoutName(ObjectId ownerId, Transaction tr)
+        private static bool IsLayerVisible(ObjectId layerId, Transaction tr, FrameScanCache cache)
         {
+            if (cache.VisibleLayers.TryGetValue(layerId, out bool isVisible))
+                return isVisible;
+
+            // Preserve the previous fail-open behavior when layer metadata is unavailable.
+            isVisible = true;
+            try
+            {
+                LayerTableRecord layer = (LayerTableRecord)tr.GetObject(layerId, OpenMode.ForRead);
+                isVisible = !layer.IsOff && !layer.IsFrozen;
+            }
+            catch { }
+
+            cache.VisibleLayers[layerId] = isVisible;
+            return isVisible;
+        }
+
+        private static string GetLayoutName(ObjectId ownerId, Transaction tr, FrameScanCache cache)
+        {
+            if (cache.LayoutNames.TryGetValue(ownerId, out string layoutName))
+                return layoutName;
+
             BlockTableRecord btr = (BlockTableRecord)tr.GetObject(ownerId, OpenMode.ForRead);
             if (btr.IsLayout)
             {
                 Layout lay = (Layout)tr.GetObject(btr.LayoutId, OpenMode.ForRead);
-                return lay.LayoutName;
+                layoutName = lay.LayoutName;
             }
-            return "Model";
+            else
+            {
+                layoutName = "Model";
+            }
+
+            cache.LayoutNames[ownerId] = layoutName;
+            return layoutName;
         }
 
         /// <summary>
@@ -195,44 +255,42 @@ namespace TPL
         /// Duyệt từng entity con trong Block Definition, với MText thì dùng ActualWidth/ActualHeight
         /// thay vì GeometricExtents (bị ảnh hưởng bởi DefinedWidth).
         /// </summary>
-        private static Extents3d CalculateBlockExtents(BlockReference br, Transaction tr)
+        private static Extents3d CalculateBlockExtents(BlockReference br, Transaction tr, FrameScanCache cache)
         {
-            BlockTableRecord btr = (BlockTableRecord)tr.GetObject(
-                br.IsDynamicBlock ? br.DynamicBlockTableRecord : br.BlockTableRecord,
-                OpenMode.ForRead);
+            // DynamicBlockTableRecord is the authoring definition. BlockTableRecord is the
+            // evaluated anonymous definition for this reference and reflects its parameters.
+            ObjectId definitionId = br.BlockTableRecord;
+
+            if (!cache.BlockDefinitionExtents.TryGetValue(definitionId, out List<Extents3d> definitionExtents))
+            {
+                definitionExtents = new List<Extents3d>();
+                BlockTableRecord btr = (BlockTableRecord)tr.GetObject(definitionId, OpenMode.ForRead);
+
+                foreach (ObjectId entId in btr)
+                {
+                    Entity ent = tr.GetObject(entId, OpenMode.ForRead) as Entity;
+                    if (ent == null || ent.IsErased || !ent.Visible) continue;
+                    if (!IsLayerVisible(ent.LayerId, tr, cache)) continue;
+
+                    try
+                    {
+                        definitionExtents.Add(ent is MText mt && mt.Width > 0 && mt.ActualWidth < mt.Width
+                            ? CalculateMTextActualExtents(mt)
+                            : ent.GeometricExtents);
+                    }
+                    catch { }
+                }
+
+                cache.BlockDefinitionExtents[definitionId] = definitionExtents;
+            }
 
             Extents3d? combinedExtents = null;
             Matrix3d blockTransform = br.BlockTransform;
 
-            foreach (ObjectId entId in btr)
+            // Reuse definition-space extents; only the instance transform changes.
+            foreach (Extents3d localExtents in definitionExtents)
             {
-                Entity ent = tr.GetObject(entId, OpenMode.ForRead) as Entity;
-                if (ent == null || ent.IsErased || !ent.Visible) continue;
-
-                // Bỏ qua entity trên layer bị tắt/frozen
-                try
-                {
-                    LayerTableRecord layer = (LayerTableRecord)tr.GetObject(ent.LayerId, OpenMode.ForRead);
-                    if (layer.IsOff || layer.IsFrozen) continue;
-                }
-                catch { }
-
-                Extents3d entExtents;
-                try
-                {
-                    if (ent is MText mt && mt.Width > 0 && mt.ActualWidth < mt.Width)
-                    {
-                        // MText có DefinedWidth lớn hơn nội dung thực → tính thủ công
-                        entExtents = CalculateMTextActualExtents(mt);
-                    }
-                    else
-                    {
-                        entExtents = ent.GeometricExtents;
-                    }
-                }
-                catch { continue; } // Entity không có extents hợp lệ
-
-                // Transform từ Block Definition Space → World Space
+                Extents3d entExtents = localExtents;
                 entExtents.TransformBy(blockTransform);
 
                 if (combinedExtents == null)
@@ -342,43 +400,119 @@ namespace TPL
             if (settings.GroupOrder == PlotHelper.SortOrder.SelectionOrder || settings.GroupOrder == PlotHelper.SortOrder.None)
                 return;
 
-            if (settings.GroupOrder == PlotHelper.SortOrder.MarkedOrder)
-                return;
-
-            var ord1 = settings.GroupOrder;
-            var ord2 = settings.CrossGroupOrder;
-            var bp = settings.SortBasePoint;
-            double fuzz = settings.Fuzz;
-
-            frames.Sort((f1, f2) =>
+            PlotHelper.SortOrder primaryOrder = settings.GroupOrder;
+            bool primaryIsHorizontal = primaryOrder == PlotHelper.SortOrder.LeftToRight || primaryOrder == PlotHelper.SortOrder.RightToLeft;
+            double fuzz = Math.Max(0, settings.Fuzz);
+            var sortableFrames = new List<SortFrame>(frames.Count);
+            for (int index = 0; index < frames.Count; index++)
             {
-                Point3d p1 = f1.GetBasePoint(bp);
-                Point3d p2 = f2.GetBasePoint(bp);
+                PlotFrame frame = frames[index];
+                sortableFrames.Add(new SortFrame
+                {
+                    Frame = frame,
+                    BasePoint = frame.GetBasePoint(settings.SortBasePoint),
+                    OriginalIndex = index
+                });
+            }
 
-                if (ord2 != PlotHelper.SortOrder.None)
+            if (settings.CrossGroupOrder != PlotHelper.SortOrder.None)
+            {
+                // Form deterministic rows/columns first. Comparing every pair with a fuzzy
+                // tolerance is not transitive and can make List.Sort produce unstable output.
+                var byCrossAxis = new List<SortFrame>(sortableFrames);
+                byCrossAxis.Sort((left, right) =>
                 {
-                    if (ord1 == PlotHelper.SortOrder.LeftToRight || ord1 == PlotHelper.SortOrder.RightToLeft)
+                    double leftAxis = primaryIsHorizontal ? left.BasePoint.Y : left.BasePoint.X;
+                    double rightAxis = primaryIsHorizontal ? right.BasePoint.Y : right.BasePoint.X;
+                    int axisComparison = leftAxis.CompareTo(rightAxis);
+                    return axisComparison != 0
+                        ? axisComparison
+                        : left.OriginalIndex.CompareTo(right.OriginalIndex);
+                });
+
+                double? groupAnchor = null;
+                int groupIndex = -1;
+                foreach (SortFrame item in byCrossAxis)
+                {
+                    double crossAxis = primaryIsHorizontal ? item.BasePoint.Y : item.BasePoint.X;
+                    if (!groupAnchor.HasValue || Math.Abs(crossAxis - groupAnchor.Value) > fuzz)
                     {
-                        if (Math.Abs(p1.Y - p2.Y) <= fuzz)
-                            return (ord1 == PlotHelper.SortOrder.LeftToRight) ? p1.X.CompareTo(p2.X) : p2.X.CompareTo(p1.X);
-                        return (ord2 == PlotHelper.SortOrder.TopToBottom) ? p2.Y.CompareTo(p1.Y) : p1.Y.CompareTo(p2.Y);
+                        groupAnchor = crossAxis;
+                        groupIndex++;
                     }
-                    else
+                    item.GroupIndex = groupIndex;
+                }
+            }
+
+            sortableFrames.Sort((left, right) =>
+            {
+                if (settings.CrossGroupOrder != PlotHelper.SortOrder.None)
+                {
+                    int groupComparison = left.GroupIndex.CompareTo(right.GroupIndex);
+                    if (groupComparison != 0)
                     {
-                        if (Math.Abs(p1.X - p2.X) <= fuzz)
-                            return (ord1 == PlotHelper.SortOrder.TopToBottom) ? p2.Y.CompareTo(p1.Y) : p1.Y.CompareTo(p2.Y);
-                        return (ord2 == PlotHelper.SortOrder.LeftToRight) ? p1.X.CompareTo(p2.X) : p2.X.CompareTo(p1.X);
+                        bool descendingCrossAxis = primaryIsHorizontal
+                            ? settings.CrossGroupOrder == PlotHelper.SortOrder.TopToBottom
+                            : settings.CrossGroupOrder != PlotHelper.SortOrder.LeftToRight;
+                        return descendingCrossAxis ? -groupComparison : groupComparison;
                     }
                 }
-                else
-                {
-                    if (ord1 == PlotHelper.SortOrder.TopToBottom) return p2.Y.CompareTo(p1.Y);
-                    if (ord1 == PlotHelper.SortOrder.BottomToTop) return p1.Y.CompareTo(p2.Y);
-                    if (ord1 == PlotHelper.SortOrder.LeftToRight) return p1.X.CompareTo(p2.X);
-                    if (ord1 == PlotHelper.SortOrder.RightToLeft) return p2.X.CompareTo(p1.X);
-                    return 0;
-                }
+
+                double leftPrimary = primaryIsHorizontal ? left.BasePoint.X : left.BasePoint.Y;
+                double rightPrimary = primaryIsHorizontal ? right.BasePoint.X : right.BasePoint.Y;
+                int primaryComparison = leftPrimary.CompareTo(rightPrimary);
+                bool descendingPrimary = primaryOrder == PlotHelper.SortOrder.RightToLeft || primaryOrder == PlotHelper.SortOrder.TopToBottom;
+                if (primaryComparison != 0)
+                    return descendingPrimary ? -primaryComparison : primaryComparison;
+
+                return left.OriginalIndex.CompareTo(right.OriginalIndex);
             });
+
+            frames.Clear();
+            foreach (SortFrame item in sortableFrames)
+                frames.Add(item.Frame);
+        }
+
+        private static void PlotSinglePage(PlotInfo plotInfo, Document doc, bool plotToFile, string outputPath)
+        {
+            using var engine = PlotFactory.CreatePublishEngine();
+            bool plotStarted = false;
+            bool documentStarted = false;
+            bool pageStarted = false;
+            bool graphicsStarted = false;
+
+            try
+            {
+                engine.BeginPlot(null, null);
+                plotStarted = true;
+
+                engine.BeginDocument(plotInfo, doc.Name, null, 1, plotToFile, plotToFile ? outputPath : null);
+                documentStarted = true;
+
+                engine.BeginPage(new PlotPageInfo(), plotInfo, true, null);
+                pageStarted = true;
+
+                engine.BeginGenerateGraphics(null);
+                graphicsStarted = true;
+                engine.EndGenerateGraphics(null);
+                graphicsStarted = false;
+
+                engine.EndPage(null);
+                pageStarted = false;
+                engine.EndDocument(null);
+                documentStarted = false;
+                engine.EndPlot(null);
+                plotStarted = false;
+            }
+            finally
+            {
+                // Printer drivers can throw during any plotting stage. Close every started stage
+                // so AutoCAD does not remain in a busy plot state and block the next print job.
+                if (graphicsStarted) { try { engine.EndGenerateGraphics(null); } catch { } }
+                if (pageStarted) { try { engine.EndPage(null); } catch { } }
+                if (documentStarted) { try { engine.EndDocument(null); } catch { } }
+                if (plotStarted) { try { engine.EndPlot(null); } catch { } }
+            }
         }
 
         public static void PlotAll(List<PlotFrame> frames, PlotHelper.PlotSettingsData settings)
@@ -406,6 +540,18 @@ namespace TPL
 
             bool isFilePrinter = PlotHelper.IsFilePrinter(settings.DeviceName);
 
+            if (string.IsNullOrWhiteSpace(settings.DeviceName) || string.IsNullOrWhiteSpace(settings.PaperSize))
+            {
+                ed.WriteMessage("\n[TPL] A plot device and paper size are required.");
+                return;
+            }
+
+            if (isFilePrinter && string.IsNullOrWhiteSpace(settings.OutputPath))
+            {
+                ed.WriteMessage("\n[TPL] An output folder is required for file printers.");
+                return;
+            }
+
             string baseName = settings.BaseFileName;
             if (string.IsNullOrWhiteSpace(baseName)) baseName = "Drawing1";
             string ext = ".plt";
@@ -414,37 +560,64 @@ namespace TPL
             // Chỉ chuẩn bị file output nếu là máy in file
             if (isFilePrinter)
             {
-                ext = settings.DeviceName.ToLower().Contains("pdf") ? ".pdf" : ".plt";
+                ext = settings.DeviceName.IndexOf("pdf", StringComparison.OrdinalIgnoreCase) >= 0 ? ".pdf" : ".plt";
                 outDir = settings.OutputPath;
                 if (!outDir.EndsWith("\\")) outDir += "\\";
                 if (!Directory.Exists(outDir)) Directory.CreateDirectory(outDir);
             }
 
-            // Phase 1: pre-collect all layout/plot data inside ONE transaction
+            // Phase 1: pre-collect required layout/plot data inside ONE transaction
             // PlotEngine must NEVER run while a transaction is active.
             var plotJobs = new List<(string LayoutName, ObjectId LayoutId, bool ModelType, PlotSettings Ps, Extents3d Extents)>();
             try
             {
                 using Transaction tr = db.TransactionManager.StartTransaction();
+                PlotSettingsValidator psv = PlotSettingsValidator.Current;
+                Matrix3d? modelWcsToDcs = null;
+                string canonicalPaperSize = null;
+                var layoutCache = new Dictionary<string, (ObjectId Id, Layout Layout)>(StringComparer.OrdinalIgnoreCase);
                 foreach (var frame in frames)
                 {
-                    ObjectId layId = LayoutManager.Current.GetLayoutId(frame.LayoutName);
-                    Layout lay = (Layout)tr.GetObject(layId, OpenMode.ForRead);
-                    PlotSettings ps = new(lay.ModelType);
-                    ps.CopyFrom(lay);
-                    PlotSettingsValidator psv = PlotSettingsValidator.Current;
+                    if (!layoutCache.TryGetValue(frame.LayoutName, out var layoutData))
+                    {
+                        ObjectId layoutId = LayoutManager.Current.GetLayoutId(frame.LayoutName);
+                        Layout layout = (Layout)tr.GetObject(layoutId, OpenMode.ForRead);
+                        layoutData = (layoutId, layout);
+                        layoutCache.Add(frame.LayoutName, layoutData);
+                    }
 
-                    // 1. Set Device and Paper Size FIRST
-                    try { psv.SetPlotConfigurationName(ps, settings.DeviceName, settings.PaperSize.Replace(" ", "_")); } catch { }
+                    ObjectId layId = layoutData.Id;
+                    Layout lay = layoutData.Layout;
+                    PlotSettings ps = new(lay.ModelType);
+                    try
+                    {
+                    ps.CopyFrom(lay);
+
+                    // Configure the device before resolving the paper name. Physical printers
+                    // often expose localized media names that cannot be reconstructed safely.
+                    if (canonicalPaperSize == null)
+                    {
+                        psv.SetPlotConfigurationName(ps, settings.DeviceName, null);
+                        psv.RefreshLists(ps);
+                        canonicalPaperSize = PlotHelper.ResolveCanonicalPaperSize(psv, ps, settings.PaperSize);
+                        if (string.IsNullOrEmpty(canonicalPaperSize))
+                            throw new InvalidOperationException($"Paper size '{settings.PaperSize}' is not available on '{settings.DeviceName}'.");
+                    }
+                    psv.SetPlotConfigurationName(ps, settings.DeviceName, canonicalPaperSize);
+                    psv.RefreshLists(ps);
 
                     // 2. Set PlotWindowArea (dummy or real) BEFORE PlotType
                     Extents2d plotExt;
                     if (lay.ModelType)
                     {
-                        using ViewTableRecord vtr = ed.GetCurrentView();
-                        Matrix3d matWCS2DCS = Matrix3d.WorldToPlane(vtr.ViewDirection) *
-                                              Matrix3d.Displacement(Point3d.Origin - vtr.Target) *
-                                              Matrix3d.Rotation(vtr.ViewTwist, vtr.ViewDirection, vtr.Target);
+                        if (!modelWcsToDcs.HasValue)
+                        {
+                            using ViewTableRecord vtr = ed.GetCurrentView();
+                            modelWcsToDcs = Matrix3d.WorldToPlane(vtr.ViewDirection) *
+                                            Matrix3d.Displacement(Point3d.Origin - vtr.Target) *
+                                            Matrix3d.Rotation(vtr.ViewTwist, vtr.ViewDirection, vtr.Target);
+                        }
+                        Matrix3d matWCS2DCS = modelWcsToDcs.Value;
 
                         Point3d p1 = new Point3d(frame.Extents.MinPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
                         Point3d p2 = new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0).TransformBy(matWCS2DCS);
@@ -470,7 +643,8 @@ namespace TPL
                     // 4. Set PlotWindowArea AGAIN to ensure it isn't reset by PlotType
                     psv.SetPlotWindowArea(ps, plotExt);
 
-                    try { psv.SetCurrentStyleSheet(ps, settings.PlotStyle); } catch { }
+                    if (!string.IsNullOrWhiteSpace(settings.PlotStyle))
+                        psv.SetCurrentStyleSheet(ps, settings.PlotStyle);
 
                     psv.SetUseStandardScale(ps, true);
                     psv.SetStdScaleType(ps, StdScaleType.ScaleToFit);
@@ -509,38 +683,56 @@ namespace TPL
                     psv.SetPlotRotation(ps, rotation);
 
                     plotJobs.Add((frame.LayoutName, layId, lay.ModelType, ps, frame.Extents));
+                    ps = null;
+                    }
+                    finally
+                    {
+                        ps?.Dispose();
+                    }
                 }
                 tr.Commit();
             }
             catch (System.Exception ex)
             {
-                ed.WriteMessage($"\nPlot data error: {ex.Message}");
-                return;
-            }
-
-            // Phase 2: PlotEngine + Regen with NO active transaction
-            short bgPlot = (short)Application.GetSystemVariable("BACKGROUNDPLOT");
-            Application.SetSystemVariable("BACKGROUNDPLOT", 0);
-
-            var progressWin = new ProgressWindow(L10n.T("prog_title"), plotJobs.Count);
-            try
-            {
-                var acWin = Application.MainWindow;
-                if (acWin != null)
+                foreach (var job in plotJobs)
                 {
-                    var helper = new System.Windows.Interop.WindowInteropHelper(progressWin)
-                    {
-                        Owner = acWin.Handle
-                    };
+                    try { job.Ps.Dispose(); } catch { }
                 }
+                ed.WriteMessage($"\nPlot data error: {ex.Message}");
+                throw new InvalidOperationException($"Cannot configure plot device '{settings.DeviceName}': {ex.Message}", ex);
             }
-            catch { }
-            progressWin.Show();
 
+            // Phase 2: PlotEngine + Regen with NO active transaction.
+            // Every native PlotSettings and global state change is restored even if UI setup fails.
+            string originalLayout = LayoutManager.Current.CurrentLayout;
+            short bgPlot = 0;
+            bool backgroundPlotDisabled = false;
+            ProgressWindow progressWin = null;
+            var pendingPlotSettings = new HashSet<PlotSettings>(plotJobs.Select(job => job.Ps));
             var generatedFiles = new List<string>();
             int errorCount = 0;
+            string firstPlotError = null;
             try
             {
+                bgPlot = (short)Application.GetSystemVariable("BACKGROUNDPLOT");
+                Application.SetSystemVariable("BACKGROUNDPLOT", 0);
+                backgroundPlotDisabled = true;
+
+                progressWin = new ProgressWindow(L10n.T("prog_title"), plotJobs.Count);
+                try
+                {
+                    var acWin = Application.MainWindow;
+                    if (acWin != null)
+                    {
+                        var helper = new System.Windows.Interop.WindowInteropHelper(progressWin)
+                        {
+                            Owner = acWin.Handle
+                        };
+                    }
+                }
+                catch { }
+                progressWin.Show();
+
                 int fileCounter = 1;
                 for (int i = 0; i < plotJobs.Count; i++)
                 {
@@ -588,25 +780,17 @@ namespace TPL
                         {
                             ed.WriteMessage($"\n[TPL] Skipped page {i + 1}: PlotEngine busy.");
                             errorCount++;
+                            firstPlotError ??= "AutoCAD is still busy with another plot operation.";
                             continue;
                         }
 
                         {
 						    // ═══ Unified Plot Engine (Silent Plotting) ═══
-						    using var pe = PlotFactory.CreatePublishEngine();
-						    pe.BeginPlot(null, null);
+						    var plotInfo = new PlotInfo { Layout = LayoutId, OverrideSettings = Ps };
+						    var plotInfoValidator = new PlotInfoValidator { MediaMatchingPolicy = MatchingPolicy.MatchEnabled };
+						    plotInfoValidator.Validate(plotInfo);
 
-						    var pi = new PlotInfo { Layout = LayoutId, OverrideSettings = Ps };
-						    var piv = new PlotInfoValidator { MediaMatchingPolicy = MatchingPolicy.MatchEnabled };
-						    piv.Validate(pi);
-
-						    pe.BeginDocument(pi, doc.Name, null, 1, isFilePrinter, isFilePrinter ? filePath : "");
-						    pe.BeginPage(new PlotPageInfo(), pi, true, null);
-						    pe.BeginGenerateGraphics(null);
-						    pe.EndGenerateGraphics(null);
-						    pe.EndPage(null);
-						    pe.EndDocument(null);
-						    pe.EndPlot(null);
+						    PlotSinglePage(plotInfo, doc, isFilePrinter, filePath);
 						    if (isFilePrinter) generatedFiles.Add(filePath);
 						}
                     }
@@ -614,11 +798,13 @@ namespace TPL
                     {
                         // ═══ CRASH-PROOF: bắt lỗi từng trang, không crash toàn batch ═══
                         errorCount++;
+                        firstPlotError ??= plotEx.Message;
                         ed.WriteMessage($"\n[TPL] ERROR page {i + 1}: {plotEx.GetType().Name}: {plotEx.Message}");
                     }
                     finally
                     {
-                        Ps.Dispose();
+                        try { Ps.Dispose(); }
+                        finally { pendingPlotSettings.Remove(Ps); }
                     }
                 }
 
@@ -626,6 +812,8 @@ namespace TPL
                 if (errorCount > 0)
                 {
                     ed.WriteMessage($"\n[TPL] Completed with {errorCount} error(s) out of {plotJobs.Count} page(s).");
+                    if (!isFilePrinter)
+                        throw new InvalidOperationException($"Physical printer '{settings.DeviceName}' could not print {errorCount} page(s): {firstPlotError}");
                 }
 
                 progressWin.UpdateProgress(plotJobs.Count, string.Format(L10n.T("prog_progress"), plotJobs.Count, plotJobs.Count), "");
@@ -740,7 +928,7 @@ namespace TPL
                         {
                             var editor = PdfEditorWindow.Instance;
                             editor.SetDefaultFileName(baseName);
-                            editor.AddPdfFiles(generatedFiles);
+                            _ = editor.AddPdfFilesAsync(generatedFiles);
 
                             Commands.MainFormInstance?.Hide();
 
@@ -779,7 +967,21 @@ namespace TPL
             finally
             {
                 try { progressWin.Close(); } catch { }
-                Application.SetSystemVariable("BACKGROUNDPLOT", bgPlot);
+                foreach (var ps in pendingPlotSettings)
+                {
+                    try { ps.Dispose(); } catch { }
+                }
+                if (backgroundPlotDisabled)
+                {
+                    try { Application.SetSystemVariable("BACKGROUNDPLOT", bgPlot); } catch { }
+                }
+                try
+                {
+                    if (!string.IsNullOrEmpty(originalLayout))
+                        LayoutManager.Current.CurrentLayout = originalLayout;
+                    ed.UpdateScreen();
+                }
+                catch { }
             }
         }
     }

@@ -20,7 +20,7 @@ namespace TPL
 
 			cbOrd1.Items.Add(L10n.T("sort_lr")); cbOrd1.Items.Add(L10n.T("sort_rl"));
 			cbOrd1.Items.Add(L10n.T("sort_tb")); cbOrd1.Items.Add(L10n.T("sort_bt"));
-			cbOrd1.Items.Add(L10n.T("sort_sel")); cbOrd1.Items.Add(L10n.T("sort_mark"));
+			cbOrd1.Items.Add(L10n.T("sort_sel"));
 			cbOrd1.SelectedIndex = 0;
 
 			cbOrd2.Items.Add(L10n.T("sort_none")); cbOrd2.Items.Add(L10n.T("sort_lr"));
@@ -41,11 +41,14 @@ namespace TPL
 				txtPath.Text = ls.OutputPath;
 				if (ls.FrameType == PlotHelper.FrameType.Block) { rbBlockMode.IsChecked = true; txtBlocks.Text = string.Join(", ", ls.FrameNames); }
 				else { rbLayerMode.IsChecked = true; txtLayers.Text = string.Join(", ", ls.FrameNames); }
-				rbCurrent.IsChecked = ls.SelectionMode == PlotHelper.SelectionMode.CurrentLayout || ls.SelectionMode == PlotHelper.SelectionMode.AllLayouts;
 				rbCurrent.IsChecked = ls.SelectionMode == PlotHelper.SelectionMode.CurrentLayout;
 				rbSelect.IsChecked = ls.SelectionMode == PlotHelper.SelectionMode.Manual;
-				cbOrd1.SelectedIndex = (int)ls.GroupOrder;
-				cbOrd2.SelectedIndex = ls.CrossGroupOrder == PlotHelper.SortOrder.None ? 0 : (int)ls.CrossGroupOrder + 1;
+				cbOrd1.SelectedIndex = (int)ls.GroupOrder < cbOrd1.Items.Count ? (int)ls.GroupOrder : 0;
+				int crossGroupOrder = (int)ls.CrossGroupOrder;
+				cbOrd2.SelectedIndex = crossGroupOrder >= (int)PlotHelper.SortOrder.LeftToRight
+					&& crossGroupOrder <= (int)PlotHelper.SortOrder.BottomToTop
+					? crossGroupOrder + 1
+					: 0;
 				cbBase.SelectedIndex = (int)ls.SortBasePoint;
 				txtFuzz.Text = ls.Fuzz.ToString();
 				chkMark.IsChecked = ls.MarkPlotRegions;
@@ -90,6 +93,71 @@ namespace TPL
 		}
 
 		// ── Preview ──
+		private List<PlotFrame> GetFramesForSettings(Document document, PlotHelper.PlotSettingsData settings)
+		{
+			if (IsFrameCacheMatch(document.Database, settings))
+				return new List<PlotFrame>(_cachedFrames);
+
+			List<PlotFrame> frames = PlotLogic.SelectFrames(settings);
+			_cachedFrameDatabase = document.Database;
+			_cachedLayoutName = LayoutManager.Current.CurrentLayout;
+			_cachedFrameDataRevision = _frameDataRevision;
+			_cachedFrameType = settings.FrameType;
+			_cachedSelectionMode = settings.SelectionMode;
+			_cachedFrameNames = settings.FrameNames?.ToArray() ?? Array.Empty<string>();
+			_cachedManualSelectionIds = settings.ManualSelectionIds?.ToArray() ?? Array.Empty<ObjectId>();
+			_cachedFrames.Clear();
+			_cachedFrames.AddRange(frames);
+			return frames;
+		}
+
+		private bool IsFrameCacheMatch(Database database, PlotHelper.PlotSettingsData settings)
+		{
+			if (_cachedFrameDatabase != database ||
+				!string.Equals(_cachedLayoutName, LayoutManager.Current.CurrentLayout, StringComparison.OrdinalIgnoreCase) ||
+				_cachedFrameDataRevision != _frameDataRevision ||
+				_cachedFrameType != settings.FrameType ||
+				_cachedSelectionMode != settings.SelectionMode)
+			{
+				return false;
+			}
+
+			IList<string> frameNames = settings.FrameNames;
+			if (frameNames == null) frameNames = Array.Empty<string>();
+			if (_cachedFrameNames.Length != frameNames.Count) return false;
+			for (int i = 0; i < _cachedFrameNames.Length; i++)
+			{
+				if (!string.Equals(_cachedFrameNames[i], frameNames[i], StringComparison.OrdinalIgnoreCase))
+					return false;
+			}
+
+			IList<ObjectId> selectionIds = settings.ManualSelectionIds;
+			if (selectionIds == null) selectionIds = Array.Empty<ObjectId>();
+			if (_cachedManualSelectionIds.Length != selectionIds.Count) return false;
+			for (int i = 0; i < _cachedManualSelectionIds.Length; i++)
+			{
+				if (_cachedManualSelectionIds[i] != selectionIds[i]) return false;
+			}
+
+			return true;
+		}
+
+		private void InvalidateFrameCache()
+		{
+			unchecked { _frameDataRevision++; }
+		}
+
+		private void ResetFrameCache()
+		{
+			InvalidateFrameCache();
+			_cachedFrameDatabase = null;
+			_cachedLayoutName = string.Empty;
+			_cachedFrameDataRevision = -1;
+			_cachedFrameNames = Array.Empty<string>();
+			_cachedManualSelectionIds = Array.Empty<ObjectId>();
+			_cachedFrames.Clear();
+		}
+
 		private void UpdatePreview()
 		{
 			try
@@ -116,7 +184,7 @@ namespace TPL
 				else
 				{
 					var sm = BuildCurrentSettings();
-					var frames = PlotLogic.SelectFrames(sm);
+					var frames = GetFramesForSettings(activDoc, sm);
 					PlotLogic.SortFrames(frames, sm);
 					lblCount.Text = rbSelect.IsChecked == true
 						? string.Format("{0}: {1}", L10n.T("rb_manual"), tempManualSelectionIds.Count)
@@ -216,6 +284,53 @@ namespace TPL
 			UpdatePreview();
 		}
 
+		/// <summary>
+		/// Prompts for plot frames without AutoCAD's intermediate selection-count feedback.
+		/// The DXF filter must include anonymous <c>*U*</c> records so configured dynamic
+		/// blocks remain selectable; their effective names can only be verified after selection.
+		/// </summary>
+		private static PromptSelectionResult SelectFrameTemplates(
+			Editor editor,
+			PlotHelper.PlotSettingsData settings,
+			string message)
+		{
+			var options = new PromptSelectionOptions { MessageForAdding = message };
+			var filter = new SelectionFilter(PlotLogic.GetFilter(settings));
+
+			// Let TPL report the final valid-frame count once. AutoCAD otherwise reports
+			// the preliminary anonymous dynamic-block count and a "filtered out" message.
+			editor.WriteMessage(message);
+			object originalNoMutt = Application.GetSystemVariable("NOMUTT");
+			try
+			{
+				Application.SetSystemVariable("NOMUTT", 1);
+				return editor.GetSelection(options, filter);
+			}
+			finally
+			{
+				Application.SetSystemVariable("NOMUTT", originalNoMutt);
+			}
+		}
+
+		private static bool IsConfiguredBlockFrame(
+			ObjectId id,
+			Transaction tr,
+			HashSet<string> frameNames)
+		{
+			if (id.IsNull || id.IsErased) return false;
+			if (tr.GetObject(id, OpenMode.ForRead, false) is not BlockReference block || block.IsErased)
+				return false;
+
+			string blockName = block.Name;
+			if (block.IsDynamicBlock &&
+				tr.GetObject(block.DynamicBlockTableRecord, OpenMode.ForRead, false) is BlockTableRecord definition)
+			{
+				blockName = definition.Name;
+			}
+
+			return frameNames.Contains(blockName);
+		}
+
 		private void BtnSelectManual_Click(object sender, RoutedEventArgs e)
 		{
 			var ds = BuildCurrentSettings();
@@ -232,32 +347,21 @@ namespace TPL
 				doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null || doc.IsDisposed) return;
 				Editor ed = doc.Editor;
-				var filter = new SelectionFilter(PlotLogic.GetFilter(ds));
-				var pso = new PromptSelectionOptions { MessageForAdding = L10n.T("msg_sel_frames") };
-				var psr = ed.GetSelection(pso, filter);
+				PromptSelectionResult psr = SelectFrameTemplates(ed, ds, L10n.T("msg_sel_frames"));
 				if (psr.Status == PromptStatus.OK)
 				{
-					int totalSelected = psr.Value.Count;
 					tempManualSelectionIds.Clear();
+					var frameNames = new HashSet<string>(ds.FrameNames, StringComparer.OrdinalIgnoreCase);
 					using var tr = doc.Database.TransactionManager.StartTransaction();
 					foreach (ObjectId id in psr.Value.GetObjectIds())
 					{
-						if (ds.FrameType == PlotHelper.FrameType.Block)
-						{
-							var br = (BlockReference)tr.GetObject(id, OpenMode.ForRead);
-							string name = br.IsDynamicBlock ? ((BlockTableRecord)tr.GetObject(br.DynamicBlockTableRecord, OpenMode.ForRead)).Name : br.Name;
-							if (ds.FrameNames.Any(fn => string.Equals(name, fn, StringComparison.OrdinalIgnoreCase)))
-								tempManualSelectionIds.Add(id);
-						}
-						else tempManualSelectionIds.Add(id);
+						if (ds.FrameType != PlotHelper.FrameType.Block || IsConfiguredBlockFrame(id, tr, frameNames))
+							tempManualSelectionIds.Add(id);
 					}
 					tr.Commit();
 
 					// Thông báo số lượng thực tế khớp tên block
-					if (tempManualSelectionIds.Count < totalSelected)
-						ed.WriteMessage($"\n[TPL] Matched {tempManualSelectionIds.Count} valid frame(s) from {totalSelected} selected entities.");
-					else
-						ed.WriteMessage($"\n[TPL] Selected {tempManualSelectionIds.Count} frame(s).");
+					ed.WriteMessage($"\n[TPL] Selected {tempManualSelectionIds.Count} valid frame(s).");
 				}
 			}
 			catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[TPL] SelectManual error: {ex.Message}"); }
@@ -283,26 +387,23 @@ namespace TPL
 				doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null || doc.IsDisposed) return;
 				Editor ed = doc.Editor;
-				var filter = new SelectionFilter(PlotLogic.GetFilter(ds));
-				var pso = new PromptSelectionOptions { MessageForAdding = "Select frames to Add" };
-				var psr = ed.GetSelection(pso, filter);
+				PromptSelectionResult psr = SelectFrameTemplates(ed, ds, "Select frames to Add");
 				if (psr.Status == PromptStatus.OK)
 				{
-					int totalSelected = psr.Value.Count;
 					int addedCount = 0;
+					var existingIds = new HashSet<ObjectId>(tempManualSelectionIds);
+					var frameNames = new HashSet<string>(ds.FrameNames, StringComparer.OrdinalIgnoreCase);
 					using var tr = doc.Database.TransactionManager.StartTransaction();
 					foreach (ObjectId id in psr.Value.GetObjectIds())
 					{
-						if (tempManualSelectionIds.Contains(id)) continue;
+						if (!existingIds.Add(id)) continue;
 
-						if (ds.FrameType == PlotHelper.FrameType.Block)
+						if (ds.FrameType != PlotHelper.FrameType.Block || IsConfiguredBlockFrame(id, tr, frameNames))
 						{
-							var br = (BlockReference)tr.GetObject(id, OpenMode.ForRead);
-							string name = br.IsDynamicBlock ? ((BlockTableRecord)tr.GetObject(br.DynamicBlockTableRecord, OpenMode.ForRead)).Name : br.Name;
-							if (ds.FrameNames.Any(fn => string.Equals(name, fn, StringComparison.OrdinalIgnoreCase)))
-							{ tempManualSelectionIds.Add(id); addedCount++; }
+							tempManualSelectionIds.Add(id);
+							addedCount++;
 						}
-						else { tempManualSelectionIds.Add(id); addedCount++; }
+						else existingIds.Remove(id);
 					}
 					tr.Commit();
 
@@ -328,16 +429,11 @@ namespace TPL
 				doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null || doc.IsDisposed) return;
 				Editor ed = doc.Editor;
-				var filter = new SelectionFilter(PlotLogic.GetFilter(ds));
-				var pso = new PromptSelectionOptions { MessageForAdding = "Select frames to Remove" };
-				var psr = ed.GetSelection(pso, filter);
+				PromptSelectionResult psr = SelectFrameTemplates(ed, ds, "Select frames to Remove");
 				if (psr.Status == PromptStatus.OK)
 				{
-					foreach (ObjectId id in psr.Value.GetObjectIds())
-					{
-						if (tempManualSelectionIds.Contains(id))
-							tempManualSelectionIds.Remove(id);
-					}
+					var idsToRemove = new HashSet<ObjectId>(psr.Value.GetObjectIds());
+					tempManualSelectionIds.RemoveAll(idsToRemove.Contains);
 				}
 			}
 			catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[TPL] RemoveManual error: {ex.Message}"); }
@@ -353,6 +449,26 @@ namespace TPL
 			try
 			{
 				Settings = BuildCurrentSettings();
+				if (string.IsNullOrWhiteSpace(Settings.DeviceName) || string.IsNullOrWhiteSpace(Settings.PaperSize))
+				{
+					System.Windows.MessageBox.Show("Vui lòng chọn máy in và khổ giấy.", L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+					return;
+				}
+				if (PlotHelper.IsFilePrinter(Settings.DeviceName) && string.IsNullOrWhiteSpace(Settings.OutputPath))
+				{
+					System.Windows.MessageBox.Show("Vui lòng chọn thư mục xuất file.", L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+					return;
+				}
+				if (Settings.Fuzz < 0)
+				{
+					System.Windows.MessageBox.Show("Sai số sắp xếp không được âm.", L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+					return;
+				}
+				if (Settings.ConvertToImage && (Settings.ImageDpi < 72 || Settings.ImageDpi > 2400))
+				{
+					System.Windows.MessageBox.Show("DPI ảnh phải nằm trong khoảng 72–2400.", L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+					return;
+				}
 				if (Settings.FrameNames.Count == 0)
 				{ System.Windows.MessageBox.Show(L10n.T("msg_no_frame"), L10n.T("err_title"), MessageBoxButton.OK, MessageBoxImage.Error); return; }
 				if (Settings.SelectionMode == PlotHelper.SelectionMode.Manual && Settings.ManualSelectionIds.Count == 0)
@@ -361,7 +477,7 @@ namespace TPL
 				Commands.LastSettings = Settings;
 				Document doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null || doc.IsDisposed) return;
-				List<PlotFrame> frames = PlotLogic.SelectFrames(Settings);
+				List<PlotFrame> frames = GetFramesForSettings(doc, Settings);
 				if (frames.Count == 0)
 				{ System.Windows.MessageBox.Show(L10n.T("msg_no_result"), L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Information); return; }
 				PlotLogic.SortFrames(frames, Settings);

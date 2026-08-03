@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.PlottingServices;
 
 namespace TPL
 {
@@ -15,9 +17,8 @@ namespace TPL
 
 		public enum SelectionMode
 		{
-			AllLayouts,
-			CurrentLayout,
-			Manual
+			CurrentLayout = 1,
+			Manual = 2
 		}
 
 		public enum SortOrder
@@ -27,8 +28,7 @@ namespace TPL
 			TopToBottom,
 			BottomToTop,
 			SelectionOrder,
-			MarkedOrder,
-			None
+			None = 6
 		}
 
 		public enum BasePoint
@@ -80,25 +80,41 @@ namespace TPL
 		public static List<string> GetPaperSizes(string deviceName)
 		{
 			Document doc = Application.DocumentManager.MdiActiveDocument;
-			Database db = doc.Database;
 			List<string> papers = new();
+			if (doc == null || doc.IsDisposed || string.IsNullOrWhiteSpace(deviceName)) return papers;
 
-			using (Transaction tr = db.TransactionManager.StartTransaction())
+			using (doc.LockDocument())
+			using (PlotSettings ps = new(doc.Database.TileMode))
 			{
-				using (PlotSettings ps = new(doc.Database.TileMode))
+				try
 				{
-					try
-					{
-						PlotSettingsValidator psv = PlotSettingsValidator.Current;
-						psv.SetPlotConfigurationName(ps, deviceName, null);
-						psv.RefreshLists(ps);
-						papers = psv.GetCanonicalMediaNameList(ps).Cast<string>().Select(p => p.Replace("_", " ")).ToList();
-					}
-					catch { }
+					PlotSettingsValidator psv = PlotSettingsValidator.Current;
+					psv.SetPlotConfigurationName(ps, deviceName, null);
+					psv.RefreshLists(ps);
+					papers = psv.GetCanonicalMediaNameList(ps).Cast<string>().Select(p => p.Replace("_", " ")).ToList();
 				}
-				tr.Commit();
+				catch (System.Exception ex)
+				{
+					System.Diagnostics.Debug.WriteLine($"[TPL] GetPaperSizes error for '{deviceName}': {ex.Message}");
+				}
 			}
 			return papers;
+		}
+
+		/// <summary>Maps the paper name displayed in the UI back to AutoCAD's canonical media name.</summary>
+		public static string ResolveCanonicalPaperSize(PlotSettingsValidator validator, PlotSettings settings, string displayName)
+		{
+			if (string.IsNullOrWhiteSpace(displayName)) return null;
+
+			string normalizedName = displayName.Replace(" ", "_");
+			foreach (string canonicalName in validator.GetCanonicalMediaNameList(settings).Cast<string>())
+			{
+				if (string.Equals(canonicalName, normalizedName, StringComparison.OrdinalIgnoreCase)
+					|| string.Equals(canonicalName.Replace("_", " "), displayName, StringComparison.OrdinalIgnoreCase))
+					return canonicalName;
+			}
+
+			return null;
 		}
 
 		public static List<string> GetPlotStyles()
@@ -156,8 +172,20 @@ namespace TPL
 		/// </summary>
 		public static bool IsFilePrinter(string deviceName)
 		{
-			if (string.IsNullOrEmpty(deviceName)) return true;
-			string lower = deviceName.ToLower();
+			if (string.IsNullOrWhiteSpace(deviceName)) return false;
+
+			try
+			{
+				PlotConfigManager.SetCurrentConfig(deviceName);
+				PlotConfig config = PlotConfigManager.CurrentConfig;
+				if (config != null) return config.IsPlotToFile;
+			}
+			catch
+			{
+				// Fall back to names only if AutoCAD cannot load the selected plot config.
+			}
+
+			string lower = deviceName.ToLowerInvariant();
 			// Các keyword nhận diện máy in xuất file (pc3 driver hoặc system printer ảo)
 			string[] fileKeywords = { "pdf", "dwf", "dwg", "png", "jpg", "jpeg", "tiff", "svg", "eps", "plt",
 				"publish to web", "dwfx", "design review" };
