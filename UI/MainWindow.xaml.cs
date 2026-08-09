@@ -277,33 +277,6 @@ namespace TPL
 			ClearPermanentMarkers();
 		}
 
-		// ── Back to editor ──
-		private void BtnBackToEditor_Click(object sender, RoutedEventArgs e)
-		{
-			var pdfEditor = PdfEditorWindow.Instance;
-			if (pdfEditor != null && pdfEditor.IsLoaded)
-			{
-				pdfEditor.Show();
-				pdfEditor.Activate();
-				this.Hide();
-			}
-		}
-
-		// ── SubPlot mode ──
-		public void SetSubPlotMode(bool isSubPlot)
-		{
-			chkMergePdf.IsEnabled = !isSubPlot;
-			chkConvertImage.IsEnabled = !isSubPlot;
-			chkPdfEditor.IsEnabled = !isSubPlot;
-			btnBackToEditor.Visibility = isSubPlot ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-			if (isSubPlot)
-			{
-				chkPdfEditor.IsChecked = true;
-				chkMergePdf.IsChecked = false;
-				chkConvertImage.IsChecked = false;
-			}
-		}
-
 		// ── Build settings from UI ──
 		private PlotHelper.PlotSettingsData BuildCurrentSettings()
 		{

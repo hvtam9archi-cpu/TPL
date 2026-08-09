@@ -924,33 +924,14 @@ namespace TPL
 					}
 					else if (settings.PdfEditor && generatedFiles.Count > 0 && generatedFiles.All(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)))
 					{
-						try
+						if (!PdfEditorLauncher.TryLaunch(
+							generatedFiles,
+							baseName,
+							deleteSourcesOnExit: true,
+							out string launchError))
 						{
-							var editor = PdfEditorWindow.Instance;
-							editor.SetDefaultFileName(baseName);
-							_ = editor.AddPdfFilesAsync(generatedFiles);
-
-							Commands.MainFormInstance?.Hide();
-
-							try
-							{
-								var acWin = Application.MainWindow;
-								if (acWin != null)
-								{
-									var helper = new System.Windows.Interop.WindowInteropHelper(editor)
-									{
-										Owner = acWin.Handle
-									};
-								}
-							}
-							catch { }
-
-							if (!editor.IsVisible)
-								Application.ShowModelessWindow(editor);
-							else
-								editor.Activate();
+							ed.WriteMessage($"\n[TPL] PDF Editor could not be started: {launchError}");
 						}
-						catch (System.Exception ex) { ed.WriteMessage($"\nPDF Editor error: {ex.Message}"); }
 					}
 
 					progressWin.Close();

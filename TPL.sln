@@ -5,6 +5,8 @@ VisualStudioVersion = 18.5.11709.299
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TPL", "TPL.csproj", "{3698B484-7180-F10D-BB16-BF341F0F643C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TPL.PdfEditor", "PdfEditor\TPL.PdfEditor.csproj", "{1776A5B8-208A-4DFC-9E87-A5FC40836386}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,14 @@ Global
 		{3698B484-7180-F10D-BB16-BF341F0F643C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{3698B484-7180-F10D-BB16-BF341F0F643C}.Release|x64.ActiveCfg = Release|x64
 		{3698B484-7180-F10D-BB16-BF341F0F643C}.Release|x64.Build.0 = Release|x64
+		{1776A5B8-208A-4DFC-9E87-A5FC40836386}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{1776A5B8-208A-4DFC-9E87-A5FC40836386}.Debug|Any CPU.Build.0 = Debug|x64
+		{1776A5B8-208A-4DFC-9E87-A5FC40836386}.Debug|x64.ActiveCfg = Debug|x64
+		{1776A5B8-208A-4DFC-9E87-A5FC40836386}.Debug|x64.Build.0 = Debug|x64
+		{1776A5B8-208A-4DFC-9E87-A5FC40836386}.Release|Any CPU.ActiveCfg = Release|x64
+		{1776A5B8-208A-4DFC-9E87-A5FC40836386}.Release|Any CPU.Build.0 = Release|x64
+		{1776A5B8-208A-4DFC-9E87-A5FC40836386}.Release|x64.ActiveCfg = Release|x64
+		{1776A5B8-208A-4DFC-9E87-A5FC40836386}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

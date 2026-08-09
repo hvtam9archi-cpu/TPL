@@ -11,9 +11,20 @@
     <PlatformTarget>x64</PlatformTarget>
     <Prefer32Bit>false</Prefer32Bit>
     <!-- Generated deployment and installer files must not participate in assembly resolution. -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);artifacts\**;Output\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);artifacts\**;Output\**;PdfEditor\**;**\bin\**;**\obj\**</DefaultItemExcludes>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <EnableBundleDeploy Condition="'$(EnableBundleDeploy)' == ''">true</EnableBundleDeploy>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The PDF editor is compiled by its standalone executable project, not loaded into AutoCAD. -->
+    <Compile Remove="UI\PdfEditorWindow.xaml.cs" />
+    <Compile Remove="UI\PdfToolsDashboard.xaml.cs" />
+    <Compile Remove="UI\PdfToolWorkspace.xaml.cs" />
+    <Page Remove="UI\PdfEditorWindow.xaml" />
+    <Page Remove="UI\PdfToolsDashboard.xaml" />
+    <Page Remove="UI\PdfToolWorkspace.xaml" />
+  </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <PackageReference Include="AutoCAD.NET" Version="23.1.0" ExcludeAssets="runtime" />
@@ -72,7 +83,19 @@
   </ItemGroup>
 
   <!-- Post-build: Tự động deploy vào ApplicationPlugins -->
-  <Target Name="DeployBundle" AfterTargets="Build">
+  <Target Name="BuildStandalonePdfEditor"
+          BeforeTargets="DeployBundle"
+          Condition="'$(EnableBundleDeploy)' == 'true'">
+    <MSBuild Projects="$(ProjectDir)PdfEditor\TPL.PdfEditor.csproj"
+             Targets="Build"
+             BuildInParallel="false"
+             RemoveProperties="TargetFramework;TargetFrameworks;RuntimeIdentifier;RuntimeIdentifiers"
+             Properties="Configuration=$(Configuration);Platform=x64" />
+  </Target>
+
+  <Target Name="DeployBundle"
+          AfterTargets="Build"
+          Condition="'$(EnableBundleDeploy)' == 'true'">
     <!-- Xác định thư mục con dựa trên TargetFramework -->
     <PropertyGroup>
       <DeployFolderName Condition="'$(TargetFramework)' == 'net48'">v2021-2024</DeployFolderName>
@@ -88,6 +111,14 @@
     <!-- Copy pdfium.dll (Native) -->
     <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)\x64" />
     <Copy SourceFiles="$(TargetDir)x64\pdfium.dll" DestinationFolder="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\$(DeployFolderName)\x64" SkipUnchangedFiles="false" Condition="Exists('$(TargetDir)x64\pdfium.dll')" />
+    <!-- Deploy one shared standalone editor used by every supported AutoCAD target. -->
+    <ItemGroup>
+      <PdfEditorDeployFiles Include="$(ProjectDir)PdfEditor\bin\x64\$(Configuration)\net48\**\*" />
+    </ItemGroup>
+    <MakeDir Directories="$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\PdfEditor" />
+    <Copy SourceFiles="@(PdfEditorDeployFiles)"
+          DestinationFiles="@(PdfEditorDeployFiles->'$(AppData)\Autodesk\ApplicationPlugins\TPL.bundle\Contents\PdfEditor\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="false" />
   </Target>
 </Project>
 

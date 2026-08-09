@@ -585,9 +585,6 @@
                                Foreground="{StaticResource LabelBrush}" FontFamily="Segoe UI"
                                FontSize="11" FontStyle="Italic" VerticalAlignment="Center" Width="200"/>
 					<StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-						<Button x:Name="btnBackToEditor" Content="Editor" Visibility="Collapsed"
-                                Style="{StaticResource DarkButton}" Width="90" Height="36" Margin="0,-2,6,0"
-                                Click="BtnBackToEditor_Click"/>
 						<Button x:Name="btnPlot" Content="▶  START PLOT"
                                 Style="{StaticResource AccentButton}" Width="114" Height="36"
                                 Click="BtnPlot_Click" Margin="0,-2,0,0"/>

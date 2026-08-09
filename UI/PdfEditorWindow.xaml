@@ -4,13 +4,16 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="d" x:Class="TPL.PdfEditorWindow"
         xmlns:local="clr-namespace:TPL"
         Title="PDF Editor - TPL"
-        Width="1000" Height="500"
-        MinWidth="900" MinHeight="500"
+        Width="1100" Height="650"
+        MinWidth="940" MinHeight="560"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         Background="#181A1F"
         AllowsTransparency="False"
         ShowInTaskbar="True"
+        AllowDrop="True"
+        DragOver="Window_DragOver"
+        Drop="Window_Drop"
         ResizeMode="CanResizeWithGrip">
 
     <WindowChrome.WindowChrome>
@@ -427,8 +430,10 @@
 
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="40"/>
+                <RowDefinition Height="Auto"/>
                 <!-- Title bar -->
+                <RowDefinition Height="40"/>
+                <!-- Document command bar -->
                 <RowDefinition Height="*"/>
                 <!-- Content -->
                 <RowDefinition Height="Auto"/>
@@ -490,8 +495,47 @@
                 </Grid>
             </Border>
 
-            <!-- ═══ CONTENT ═══ -->
-            <Grid Grid.Row="1" Margin="14,10,14,0">
+            <Border x:Name="documentCommandBar" Grid.Row="1" Height="40" Visibility="Collapsed" Background="#12141A"
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,1"
+                    Padding="10,5">
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="btnHome" Content="Tools" Style="{StaticResource DarkButton}"
+                            Height="28" MinWidth="58" Padding="10,3" Margin="0,0,10,0" Click="BtnHome_Click" ToolTip="Back to PDF tools"/>
+                    <Button x:Name="btnNew" Content="New" Style="{StaticResource DarkButton}"
+                            Height="28" MinWidth="54" Padding="10,3" Click="BtnNew_Click" ToolTip="New (Ctrl+N)"/>
+                    <Button x:Name="btnOpen" Content="Open" Style="{StaticResource DarkButton}"
+                            Height="28" MinWidth="58" Padding="10,3" Margin="5,0,0,0" Click="BtnOpen_Click" ToolTip="Open PDF (Ctrl+O)"/>
+                    <Button x:Name="btnSaveCommand" Content="Save" Style="{StaticResource AccentButton}"
+                            Height="28" MinWidth="58" Padding="10,3" Margin="5,0,0,0" Click="BtnSaveCommand_Click" ToolTip="Save (Ctrl+S)"/>
+                    <Button x:Name="btnSaveAs" Content="Save As" Style="{StaticResource DarkButton}"
+                            Height="28" MinWidth="72" Padding="10,3" Margin="5,0,10,0" Click="BtnSaveAs_Click" ToolTip="Save As (Ctrl+Shift+S)"/>
+                    <Button x:Name="btnUndo" Content="Undo" Style="{StaticResource DarkButton}"
+                            Height="28" MinWidth="58" Padding="10,3" IsEnabled="False" Click="BtnUndo_Click" ToolTip="Undo (Ctrl+Z)"/>
+                    <Button x:Name="btnRedo" Content="Redo" Style="{StaticResource DarkButton}"
+                            Height="28" MinWidth="58" Padding="10,3" Margin="5,0,10,0" IsEnabled="False" Click="BtnRedo_Click" ToolTip="Redo (Ctrl+Y)"/>
+                    <Button x:Name="btnDuplicate" Content="Duplicate" Style="{StaticResource DarkButton}"
+                            Height="28" MinWidth="76" Padding="10,3" Click="BtnDuplicate_Click" ToolTip="Duplicate selected pages (Ctrl+D)"/>
+                    <Button x:Name="btnRotateLeft" Content="Rotate Left" Style="{StaticResource DarkButton}"
+                            Height="28" MinWidth="84" Padding="10,3" Margin="5,0,0,0" Click="BtnRotateLeft_Click"/>
+                    <Button x:Name="btnRotateRight" Content="Rotate Right" Style="{StaticResource DarkButton}"
+                            Height="28" MinWidth="90" Padding="10,3" Margin="5,0,0,0" Click="BtnRotateRight_Click"/>
+                    <Button x:Name="btnExtract" Content="Extract" Style="{StaticResource DarkButton}"
+                            Height="28" MinWidth="66" Padding="10,3" Margin="10,0,0,0" Click="BtnExtract_Click" ToolTip="Export selected pages (Ctrl+E)"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ PDF TOOL DASHBOARD ═══ -->
+            <local:PdfToolsDashboard x:Name="toolsDashboard"
+                                     Grid.Row="2"
+                                     ToolSelected="ToolsDashboard_ToolSelected"/>
+
+            <local:PdfToolWorkspace x:Name="specializedToolWorkspace"
+                                    Grid.Row="1" Grid.RowSpan="4"
+                                    Visibility="Collapsed"
+                                    BackRequested="SpecializedToolWorkspace_BackRequested"/>
+
+            <!-- ═══ EDITOR CONTENT ═══ -->
+            <Grid x:Name="editorWorkspace" Grid.Row="2" Margin="14,10,14,0" Visibility="Collapsed">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="300" MinWidth="300"/>
                     <ColumnDefinition Width="8"/>
@@ -509,14 +553,11 @@
 
                     <!-- Toolbar: 2 rows, fixed layout -->
                     <StackPanel Grid.Row="0" Margin="0,0,0,6">
-                        <!-- Row 1: Plot, Import, Separate PDFs -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4" Height="56">
-                            <Button x:Name="btnPlusPlot" Content="＋ PLOT" 
-                                    Style="{StaticResource AccentButton}" FontSize="13" FontWeight="Bold"
-                                    Width="80" Height="56" Padding="0" Click="BtnPlusPlot_Click" Margin="0,0,6,0"/>
+                        <!-- Row 1: Import and page expansion option -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4" Height="30">
                             <Button x:Name="btnAdd" Content="Import" 
                                     Style="{StaticResource DarkButton}" FontSize="11" FontWeight="Bold"
-                                    Width="100" Height="26" Padding="0" Click="BtnAdd_Click" Margin="0,-30,6,0">
+                                    Width="100" Height="26" Padding="0" Click="BtnAdd_Click" Margin="0,0,6,0">
                                 <Button.BorderBrush>
                                     <SolidColorBrush Color="{DynamicResource TrackColor}"/>
                                 </Button.BorderBrush>
@@ -527,25 +568,25 @@
                                     <SolidColorBrush Color="{DynamicResource BorderColor}"/>
                                 </Button.Background>
                             </Button>
-                            <CheckBox x:Name="chkSeparatePdfs" Content="Separate PDFs" 
+                            <CheckBox x:Name="chkSeparatePdfs" Content="Import as pages" IsChecked="True"
                                       Foreground="{StaticResource LabelBrush}" 
-                                      VerticalAlignment="Center" FontSize="11" Margin="0,-28,0,0"/>
+                                      VerticalAlignment="Center" FontSize="11" Margin="0"/>
                         </StackPanel>
                         <!-- Row 2: Remove, Up, Down, Rotate -->
-                        <StackPanel Orientation="Horizontal" Margin="0,-28,0,0">
+                        <StackPanel Orientation="Horizontal">
                             <Button x:Name="btnRemove" Content="Remove" 
                                     Style="{StaticResource DangerButton}" FontSize="11" FontWeight="Bold"
-                                    Width="100" Height="26" Padding="0" Click="BtnRemove_Click" Margin="86,-5,6,0"/>
+                                    Width="100" Height="26" Padding="0" Click="BtnRemove_Click" Margin="0,0,6,0"/>
                             <Button x:Name="btnUp" Content="▲" 
                                     Style="{StaticResource DarkButton}" FontSize="11"
-                                    Width="34" Height="26" Padding="0" Click="BtnUp_Click" Margin="-1,-5,3,0"/>
+                                    Width="34" Height="26" Padding="0" Click="BtnUp_Click" Margin="0,0,3,0"/>
                             <Button x:Name="btnDown" Content="▼" 
                                     Style="{StaticResource DarkButton}" FontSize="11"
-                                    Width="34" Height="26" Padding="0" Click="BtnDown_Click" Margin="0,-5,0,0"/>
+                                    Width="34" Height="26" Padding="0" Click="BtnDown_Click" Margin="0"/>
                             <Button x:Name="btnRotate" 
                                     Style="{StaticResource DarkButton}" 
-                                    Width="34" Height="26" Padding="0" Click="BtnRotate_Click" Margin="3,-5,0,0" ToolTip="Rotate Clockwise">
-                                <Image Source="pack://application:,,,/TPL;component/Resource/IconRotate_32px.png" Width="14" Height="14" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    Width="34" Height="26" Padding="0" Click="BtnRotate_Click" Margin="3,0,0,0" ToolTip="Rotate Clockwise">
+                                <Image Source="pack://application:,,,/TPL.PdfEditor;component/Resource/IconRotate_32px.png" Width="14" Height="14" RenderOptions.BitmapScalingMode="HighQuality"/>
                             </Button>
                         </StackPanel>
                     </StackPanel>
@@ -709,7 +750,7 @@
                         </Border>
 
                         <Grid Grid.Row="1">
-                            <WindowsFormsHost x:Name="pdfHost" Margin="0"/>
+                            <WindowsFormsHost x:Name="pdfHost" Margin="0" Visibility="Collapsed"/>
                             <!-- Placeholder when no page selected -->
                             <TextBlock x:Name="txtNoPreview" Text="Select a page to preview"
                                        Foreground="{StaticResource LabelBrush}" FontSize="14" FontFamily="Segoe UI"
@@ -721,10 +762,10 @@
             </Grid>
 
             <!-- ═══ PROGRESS BAR (hidden by default) ═══ -->
-            <local:DarkProgressControl x:Name="pnlProgress" Grid.Row="2" Visibility="Collapsed" Margin="14,10,14,0"/>
+            <local:DarkProgressControl x:Name="pnlProgress" Grid.Row="3" Visibility="Collapsed" Margin="14,10,14,0"/>
 
             <!-- ═══ BOTTOM BAR ═══ -->
-            <Border Grid.Row="3" Background="#12141A" Padding="14,10" CornerRadius="0,0,10,10">
+            <Border x:Name="editorFooter" Grid.Row="4" Visibility="Collapsed" Background="#12141A" Padding="14,10" CornerRadius="0,0,10,10">
                 <DockPanel>
                     <!-- Right side: Save / Cancel -->
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -732,7 +773,7 @@
                                 Style="{StaticResource AccentButton}" 
                                 Width="140" Height="36" FontSize="13"
                                 Click="BtnSave_Click" BorderBrush="#00000000" Margin="0,4,0,0"/>
-                        <Button x:Name="btnCancel" Content="Cancel" 
+                        <Button x:Name="btnCancel" Content="Close"
                                 Style="{StaticResource DarkButton}" 
                                 Width="100" Height="36" Margin="8,4,0,0"
                                 Click="BtnCancel_Click"/>
@@ -743,6 +784,9 @@
                             FontSize="10" FontFamily="Segoe UI" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBox x:Name="txtFileName" Style="{StaticResource DarkTextBox}" 
                             Width="251" FontSize="12" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="txtDocumentStatus" Text="0 pages" Foreground="{StaticResource LabelBrush}"
+                                   FontSize="11" FontFamily="Segoe UI" VerticalAlignment="Center" Margin="14,0,0,0"
+                                   TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                 </DockPanel>
             </Border>

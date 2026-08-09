@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>10.0</LangVersion>
+    <AssemblyName>TPL.PdfEditor</AssemblyName>
+    <RootNamespace>TPL</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <!-- PdfiumViewer is the established renderer and is hosted inside WPF via WindowsFormsHost. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <Nullable>disable</Nullable>
+    <ApplicationIcon>..\Resource\StyleSettings_32px.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PDFsharp" Version="1.50.5147" />
+    <PackageReference Include="PdfiumViewer" Version="2.13.0" NoWarn="NU1701" />
+    <PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\UI\PdfEditorWindow.xaml.cs" Link="Views\PdfEditorWindow.xaml.cs" />
+    <Compile Include="..\UI\PdfToolsDashboard.xaml.cs" Link="Views\PdfToolsDashboard.xaml.cs" />
+    <Compile Include="..\UI\PdfToolWorkspace.xaml.cs" Link="Views\PdfToolWorkspace.xaml.cs" />
+    <Compile Include="..\UI\DarkProgressControl.xaml.cs" Link="Controls\DarkProgressControl.xaml.cs" />
+    <Compile Include="..\Logic\Localization.cs" Link="Localization.cs" />
+    <Compile Include="..\Logic\PdfEditorSession.cs" Link="PdfEditorSession.cs" />
+    <Page Include="..\UI\PdfEditorWindow.xaml" Link="Views\PdfEditorWindow.xaml" />
+    <Page Include="..\UI\PdfToolsDashboard.xaml" Link="Views\PdfToolsDashboard.xaml" />
+    <Page Include="..\UI\PdfToolWorkspace.xaml" Link="Views\PdfToolWorkspace.xaml" />
+    <Page Include="..\UI\DarkProgressControl.xaml" Link="Controls\DarkProgressControl.xaml" />
+    <Resource Include="..\Resource\IconRotate_32px.png" Link="Resource\IconRotate_32px.png" />
+    <Resource Include="..\Resource\StyleSettings_32px.ico" Link="Resource\StyleSettings_32px.ico" />
+  </ItemGroup>
+</Project>

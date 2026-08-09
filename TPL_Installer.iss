@@ -37,12 +37,16 @@ Source: "TPL.bundle\PackageContents.xml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Resource\IconRibbon_32px.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Sao chép toàn bộ thư viện và tệp DLL cho AutoCAD 2015-2024 (.NET Framework 4.8)
-Source: "bin\Release\net48\*"; DestDir: "{app}\Contents\v2021-2024"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "bin\x64\Release\net48\*"; DestDir: "{app}\Contents\v2021-2024"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Sao chép toàn bộ thư viện và tệp DLL cho AutoCAD 2025-2026+ (.NET 8.0-windows)
-Source: "bin\Release\net8.0-windows\*"; DestDir: "{app}\Contents\v2025-2026"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "bin\x64\Release\net8.0-windows\*"; DestDir: "{app}\Contents\v2025-2026"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; Standalone PDF editor shared by every AutoCAD version
+Source: "PdfEditor\bin\x64\Release\net48\*"; DestDir: "{app}\Contents\PdfEditor"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
+Name: "{userprograms}\{#AppName}\TPL PDF Editor"; Filename: "{app}\Contents\PdfEditor\TPL.PdfEditor.exe"; IconFilename: "{app}\IconRibbon_32px.ico"
 ; Tạo shortcut gỡ cài đặt có Icon chuyên nghiệp trong Start Menu
 Name: "{userprograms}\{#AppName}\Uninstall TPL Plotter"; Filename: "{uninstallexe}"; IconFilename: "{app}\IconRibbon_32px.ico"
 
