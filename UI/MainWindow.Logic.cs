@@ -450,22 +450,22 @@ namespace TPL
 				Settings = BuildCurrentSettings();
 				if (string.IsNullOrWhiteSpace(Settings.DeviceName) || string.IsNullOrWhiteSpace(Settings.PaperSize))
 				{
-					System.Windows.MessageBox.Show("Vui lòng chọn máy in và khổ giấy.", L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+					System.Windows.MessageBox.Show(L10n.T("msg_need_printer_paper"), L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
 					return;
 				}
 				if (PlotHelper.IsFilePrinter(Settings.DeviceName) && string.IsNullOrWhiteSpace(Settings.OutputPath))
 				{
-					System.Windows.MessageBox.Show("Vui lòng chọn thư mục xuất file.", L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+					System.Windows.MessageBox.Show(L10n.T("msg_need_output_folder"), L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
 					return;
 				}
 				if (Settings.Fuzz < 0)
 				{
-					System.Windows.MessageBox.Show("Sai số sắp xếp không được âm.", L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+					System.Windows.MessageBox.Show(L10n.T("msg_fuzz_negative"), L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
 					return;
 				}
 				if (Settings.ConvertToImage && (Settings.ImageDpi < 72 || Settings.ImageDpi > 2400))
 				{
-					System.Windows.MessageBox.Show("DPI ảnh phải nằm trong khoảng 72–2400.", L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+					System.Windows.MessageBox.Show(L10n.T("msg_dpi_range"), L10n.T("warn_title"), MessageBoxButton.OK, MessageBoxImage.Warning);
 					return;
 				}
 				if (Settings.FrameNames.Count == 0)

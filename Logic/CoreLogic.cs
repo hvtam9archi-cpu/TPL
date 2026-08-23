@@ -123,49 +123,6 @@ namespace TPL
 			return psv.GetPlotStyleSheetList().Cast<string>().ToList();
 		}
 
-		public static List<string> GetBlockNames()
-		{
-			Document doc = Application.DocumentManager.MdiActiveDocument;
-			Database db = doc.Database;
-			List<string> blocks = new();
-
-			using (Transaction tr = db.TransactionManager.StartTransaction())
-			{
-				BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
-				foreach (ObjectId btrId in bt)
-				{
-					BlockTableRecord btr = (BlockTableRecord)tr.GetObject(btrId, OpenMode.ForRead);
-					if (!btr.IsAnonymous && !btr.IsLayout)
-					{
-						blocks.Add(btr.Name);
-					}
-				}
-				tr.Commit();
-			}
-			blocks.Sort();
-			return blocks;
-		}
-
-		public static List<string> GetLayerNames()
-		{
-			Document doc = Application.DocumentManager.MdiActiveDocument;
-			Database db = doc.Database;
-			List<string> layers = new();
-
-			using (Transaction tr = db.TransactionManager.StartTransaction())
-			{
-				LayerTable lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
-				foreach (ObjectId ltrId in lt)
-				{
-					LayerTableRecord ltr = (LayerTableRecord)tr.GetObject(ltrId, OpenMode.ForRead);
-					layers.Add(ltr.Name);
-				}
-				tr.Commit();
-			}
-			layers.Sort();
-			return layers;
-		}
-
 		/// <summary>
 		/// Kiểm tra xem device có phải máy in xuất file (PDF, DWF, PLT...) hay máy in vật lý.
 		/// Trả về true nếu là máy in file, false nếu là máy in vật lý (Canon, HP, Epson...).
@@ -174,15 +131,37 @@ namespace TPL
 		{
 			if (string.IsNullOrWhiteSpace(deviceName)) return false;
 
+			// SetCurrentConfig thay đổi global state của AutoCAD — lưu thiết bị hiện hành
+			// và luôn khôi phục trong finally kể cả khi exception hoặc early-return.
+			string previousDevice = null;
+			try { previousDevice = PlotConfigManager.CurrentConfig?.DeviceName; }
+			catch (System.Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] Could not read current plot config: {ex.Message}");
+			}
+
 			try
 			{
 				PlotConfigManager.SetCurrentConfig(deviceName);
 				PlotConfig config = PlotConfigManager.CurrentConfig;
 				if (config != null) return config.IsPlotToFile;
 			}
-			catch
+			catch (System.Exception ex)
 			{
 				// Fall back to names only if AutoCAD cannot load the selected plot config.
+				System.Diagnostics.Debug.WriteLine($"[TPL] Could not load plot config '{deviceName}': {ex.Message}");
+			}
+			finally
+			{
+				if (!string.IsNullOrEmpty(previousDevice) &&
+					!string.Equals(previousDevice, deviceName, StringComparison.OrdinalIgnoreCase))
+				{
+					try { PlotConfigManager.SetCurrentConfig(previousDevice); }
+					catch (System.Exception ex)
+					{
+						System.Diagnostics.Debug.WriteLine($"[TPL] Could not restore plot config '{previousDevice}': {ex.Message}");
+					}
+				}
 			}
 
 			string lower = deviceName.ToLowerInvariant();

@@ -123,6 +123,11 @@ namespace TPL
 			["lic_key_error_fmt"] = "Mã kích hoạt không hợp lệ hoặc bị lỗi định dạng: {0}",
 			["lic_revoked_permanent"] = "❌ Bản quyền đã bị thu hồi vĩnh viễn!\nKhông thể kích hoạt lại. Vui lòng liên hệ tác giả.",
 			["lic_revoked_detected"] = "⛔ Bản quyền đã bị thu hồi từ xa.\nVui lòng liên hệ tác giả để được hỗ trợ.",
+			["lic_invalid_or_expired"] = "Bản quyền không hợp lệ hoặc đã hết hạn.",
+			["msg_need_printer_paper"] = "Vui lòng chọn máy in và khổ giấy.",
+			["msg_need_output_folder"] = "Vui lòng chọn thư mục xuất file.",
+			["msg_fuzz_negative"] = "Sai số sắp xếp không được âm.",
+			["msg_dpi_range"] = "DPI ảnh phải nằm trong khoảng 72–2400.",
 		};
 
 		// ─── English ──────────────────────────────────────────────────────────
@@ -214,6 +219,11 @@ namespace TPL
 			["lic_key_error_fmt"] = "Invalid activation key or format error: {0}",
 			["lic_revoked_permanent"] = "❌ License has been permanently revoked!\nCannot be reactivated. Please contact the author.",
 			["lic_revoked_detected"] = "⛔ License has been remotely revoked.\nPlease contact the author for support.",
+			["lic_invalid_or_expired"] = "License is invalid or has expired.",
+			["msg_need_printer_paper"] = "Please select a printer and paper size.",
+			["msg_need_output_folder"] = "Please select an output folder.",
+			["msg_fuzz_negative"] = "Sort tolerance cannot be negative.",
+			["msg_dpi_range"] = "Image DPI must be between 72 and 2400.",
 		};
 
 		// ─── Chinese (Simplified) 简体中文 ─────────────────────────────────────

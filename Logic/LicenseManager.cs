@@ -106,62 +106,89 @@ namespace TPL
 #endif
 		}
 
+		private static bool IsRevokeListConfigured =>
+			!string.IsNullOrEmpty(RevokeListUrl) && RevokeListUrl.StartsWith("http");
+
+		/// <summary>Tải danh sách thu hồi với cache-buster timestamp để luôn lấy dữ liệu mới.</summary>
+		private static async Task<string> FetchRevokeListAsync()
+		{
+			string url = RevokeListUrl + (ContainsQueryDelimiter(RevokeListUrl) ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
+
+			using var request = new HttpRequestMessage(HttpMethod.Get, url);
+			request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
+
+			using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+			response.EnsureSuccessStatusCode();
+			return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+		}
+
+		private static string FetchRevokeList() =>
+			FetchRevokeListAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+
+		/// <summary>
+		/// Áp dụng danh sách thu hồi từ xa lên license cục bộ.
+		/// Trả về true nếu HWID hoặc bất kỳ key đã dùng nào nằm trong danh sách thu hồi.
+		/// Flag IsPermanentlyRevoked một khi đã set sẽ KHÔNG BAO GIỜ bị gỡ,
+		/// kể cả khi HWID/key sau đó được gỡ khỏi revoke list từ xa.
+		/// </summary>
+		private static bool ApplyRevokeList(string data)
+		{
+			string hwId = GetHardwareId();
+			string cleanData = data.Replace("-", "").Replace(" ", "");
+
+			// Lấy license info 1 lần duy nhất
+			LicenseInfo info = GetLicenseInfo();
+
+			bool isRevoked = ContainsOrdinalIgnoreCase(cleanData, hwId);
+			if (!isRevoked)
+			{
+				foreach (string key in info.AppliedKeys)
+				{
+					if (!string.IsNullOrEmpty(key) && ContainsOrdinalIgnoreCase(cleanData, key))
+					{ isRevoked = true; break; }
+				}
+			}
+
+			if (!isRevoked) return false;
+
+			// Đánh dấu thu hồi VĨNH VIỄN
+			if (!info.IsPermanentlyRevoked)
+			{
+				info.IsPermanentlyRevoked = true;
+				info.ExpirationDate = DateTime.MinValue;
+			}
+
+			// Dọn dẹp: xoá các key bị thu hồi khỏi AppliedKeys
+			info.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && ContainsOrdinalIgnoreCase(cleanData, k));
+			SaveLicenseInfo(info);
+			return true;
+		}
+
 		public static void CheckRemoteRevokeAsync()
 		{
-			if (string.IsNullOrEmpty(RevokeListUrl) || !RevokeListUrl.StartsWith("http")) return;
+			if (!IsRevokeListConfigured) return;
 
 			Task.Run(async () =>
 			{
 				try
 				{
-					// Chống cache: thêm timestamp vào URL
-					string url = RevokeListUrl + (ContainsQueryDelimiter(RevokeListUrl) ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
+					string data = await FetchRevokeListAsync().ConfigureAwait(false);
 
-					using var request = new HttpRequestMessage(HttpMethod.Get, url);
-					request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
-
-					using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
-					response.EnsureSuccessStatusCode();
-					string data = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-					string hwId = GetHardwareId();
-					string cleanData = data.Replace("-", "").Replace(" ", "");
-
-					// Lấy license info 1 lần duy nhất
-					LicenseInfo info = GetLicenseInfo();
-
-					bool isRevoked = ContainsOrdinalIgnoreCase(cleanData, hwId);
-					if (!isRevoked)
-					{
-						foreach (string key in info.AppliedKeys)
-						{
-							if (!string.IsNullOrEmpty(key) && ContainsOrdinalIgnoreCase(cleanData, key))
-							{ isRevoked = true; break; }
-						}
-					}
-
-					if (isRevoked)
-					{
-						// Đánh dấu thu hồi VĨNH VIỄN — flag này KHÔNG BAO GIỜ được xoá,
-						// kể cả khi HWID/key sau đó được gỡ khỏi revoke list từ xa.
-						if (!info.IsPermanentlyRevoked)
-						{
-							info.IsPermanentlyRevoked = true;
-							info.ExpirationDate = DateTime.MinValue;
-						}
-
-						// Dọn dẹp: xoá các key bị thu hồi khỏi AppliedKeys
-						info.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && ContainsOrdinalIgnoreCase(cleanData, k));
-						SaveLicenseInfo(info);
-					}
-					else
+					if (!ApplyRevokeList(data))
 					{
 						// Không có revoke mới → vẫn dọn key cũ/trùng lặp định kỳ
-						CleanupAppliedKeys(info);
+						CleanupAppliedKeys(GetLicenseInfo());
 					}
 				}
-				catch (TaskCanceledException) { /* Timeout hoặc AutoCAD đóng — bỏ qua */ }
-				catch { /* Không có mạng — bỏ qua */ }
+				catch (TaskCanceledException ex)
+				{
+					System.Diagnostics.Debug.WriteLine($"[TPL] Remote revoke check timed out: {ex.Message}");
+				}
+				catch (System.Exception ex)
+				{
+					// Không có mạng — bỏ qua, dựa vào IsPermanentlyRevoked đã persist
+					System.Diagnostics.Debug.WriteLine($"[TPL] Remote revoke check skipped: {ex.Message}");
+				}
 			});
 		}
 
@@ -174,63 +201,18 @@ namespace TPL
 		/// </summary>
 		public static bool CheckRemoteRevokeSync()
 		{
-			if (string.IsNullOrEmpty(RevokeListUrl) || !RevokeListUrl.StartsWith("http"))
+			if (!IsRevokeListConfigured)
 				return false;
 
 			try
 			{
-				string url = RevokeListUrl + (ContainsQueryDelimiter(RevokeListUrl) ? "&" : "?") + "_t=" + DateTime.Now.Ticks;
-
-				using var request = new HttpRequestMessage(HttpMethod.Get, url);
-				request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
-				using var response = _httpClient.SendAsync(request).ConfigureAwait(false).GetAwaiter().GetResult();
-				response.EnsureSuccessStatusCode();
-				string data = response.Content.ReadAsStringAsync().ConfigureAwait(false).GetAwaiter().GetResult();
-
-				string hwId = GetHardwareId();
-				string cleanData = data.Replace("-", "").Replace(" ", "");
-
-				// Kiểm tra HWID
-				if (ContainsOrdinalIgnoreCase(cleanData, hwId))
-				{
-					var info = GetLicenseInfo();
-					// Dọn key bị thu hồi khỏi AppliedKeys
-					info.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && ContainsOrdinalIgnoreCase(cleanData, k));
-					// Đánh dấu thu hồi vĩnh viễn ngay lập tức
-					if (!info.IsPermanentlyRevoked)
-					{
-						info.IsPermanentlyRevoked = true;
-						info.ExpirationDate = DateTime.MinValue;
-					}
-					SaveLicenseInfo(info);
-					return true;
-				}
-
-				// Kiểm tra tất cả key đã từng dùng
-				var info2 = GetLicenseInfo();
-				bool found = false;
-				foreach (string key in info2.AppliedKeys)
-				{
-					if (!string.IsNullOrEmpty(key) && ContainsOrdinalIgnoreCase(cleanData, key))
-					{ found = true; break; }
-				}
-
-				if (found)
-				{
-					// Dọn key bị thu hồi khỏi AppliedKeys
-					info2.AppliedKeys.RemoveAll(k => !string.IsNullOrEmpty(k) && ContainsOrdinalIgnoreCase(cleanData, k));
-					// Đánh dấu thu hồi vĩnh viễn
-					if (!info2.IsPermanentlyRevoked)
-					{
-						info2.IsPermanentlyRevoked = true;
-						info2.ExpirationDate = DateTime.MinValue;
-					}
-					SaveLicenseInfo(info2);
-				}
-
-				return found;
+				return ApplyRevokeList(FetchRevokeList());
 			}
-			catch { /* Không có mạng hoặc timeout — bỏ qua, dựa vào IsPermanentlyRevoked */ }
+			catch (System.Exception ex)
+			{
+				// Không có mạng hoặc timeout — bỏ qua, dựa vào IsPermanentlyRevoked đã persist
+				System.Diagnostics.Debug.WriteLine($"[TPL] Sync revoke check skipped: {ex.Message}");
+			}
 
 			return false;
 		}
@@ -280,13 +262,16 @@ namespace TPL
 		{
 			try
 			{
-				ManagementObjectSearcher searcher = new($"SELECT {property} FROM {wmiclass}");
+				using ManagementObjectSearcher searcher = new($"SELECT {property} FROM {wmiclass}");
 				foreach (ManagementBaseObject obj in searcher.Get())
 				{
 					return obj[property]?.ToString()?.Trim() ?? "";
 				}
 			}
-			catch { }
+			catch (System.Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] WMI query '{wmiclass}.{property}' failed: {ex.Message}");
+			}
 			return "UNKNOWN";
 		}
 
@@ -317,7 +302,10 @@ namespace TPL
 				using RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath);
 				encryptedData = key?.GetValue("LicenseData") as string;
 			}
-			catch { }
+			catch (System.Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] Could not read license registry data: {ex.Message}");
+			}
 
 			if (string.IsNullOrEmpty(encryptedData))
 			{
@@ -361,7 +349,10 @@ namespace TPL
 				using RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath);
 				key?.SetValue("LicenseData", encrypted);
 			}
-			catch { }
+			catch (System.Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] Could not save license registry data: {ex.Message}");
+			}
 		}
 
 		public static void UpdateLastRunDate(LicenseInfo info)
@@ -452,14 +443,10 @@ namespace TPL
 				}
 
 				// Kiểm tra revoke từ xa đồng bộ — dù user có xoá registry,
-				// nếu HWID hoặc key cũ còn trong revoke list → chặn kích hoạt
+				// nếu HWID hoặc key cũ còn trong revoke list → chặn kích hoạt.
+				// ApplyRevokeList đã tự đánh dấu flag vĩnh viễn và lưu registry.
 				if (CheckRemoteRevokeSync())
 				{
-					// Đánh dấu luôn trong registry để lần sau khỏi check lại
-					info.IsPermanentlyRevoked = true;
-					info.ExpirationDate = DateTime.MinValue;
-					SaveLicenseInfo(info);
-
 					message = L10n.T("lic_revoked_permanent");
 					return false;
 				}
@@ -564,14 +551,6 @@ namespace TPL
 				formatted.Append(rawBase32[i]);
 			}
 			return formatted.ToString();
-		}
-
-		private static string ComputeSHA256String(string text)
-		{
-			byte[] bytes = ComputeSha256Hash(Encoding.UTF8.GetBytes(text));
-			StringBuilder sb = new();
-			foreach (byte b in bytes) sb.Append(b.ToString("X2"));
-			return sb.ToString();
 		}
 
 		private static byte[] GetHashSha256(string text)

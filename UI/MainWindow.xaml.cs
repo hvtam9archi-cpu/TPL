@@ -39,9 +39,13 @@ namespace TPL
 
 		public MainWindow()
 		{
-			try { L10n.Init(); } catch { }
+			try { L10n.Init(); }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] L10n.Init failed: {ex.Message}");
+			}
 			_previewDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
-			_previewDebounce.Tick += (s, e) => { _previewDebounce.Stop(); try { UpdatePreview(); } catch { } };
+			_previewDebounce.Tick += (s, e) => { _previewDebounce.Stop(); try { UpdatePreview(); } catch (Exception tickEx) { System.Diagnostics.Debug.WriteLine($"[TPL] Preview debounce tick failed: {tickEx.Message}"); } };
 
 			InitializeComponent();
 
@@ -223,7 +227,10 @@ namespace TPL
 							if (File.Exists(altPath)) path = altPath;
 						}
 					}
-					catch { }
+					catch (Exception ex)
+					{
+						System.Diagnostics.Debug.WriteLine($"[TPL] Could not resolve PLOTSTYLEDIR fallback: {ex.Message}");
+					}
 				}
 
 				// Fallback 2: tìm styexe.exe trong thư mục cài đặt AutoCAD
@@ -331,7 +338,10 @@ namespace TPL
 					AttachDbEvents(doc.Database);
 				}
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] SubscribeDatabaseEvents failed: {ex.Message}");
+			}
 		}
 
 		private void UnsubscribeDatabaseEvents()
@@ -345,7 +355,10 @@ namespace TPL
 					DetachDbEvents(doc.Database);
 				}
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] UnsubscribeDatabaseEvents failed: {ex.Message}");
+			}
 		}
 
 		private void DocumentManager_DocumentActivated_Local(object sender, DocumentCollectionEventArgs e)
@@ -359,7 +372,10 @@ namespace TPL
 					TriggerPreviewInternal();
 				}
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] DocumentActivated handler failed: {ex.Message}");
+			}
 		}
 
 		private void DocumentManager_DocumentToBeDestroyed_Local(object sender, DocumentCollectionEventArgs e)
@@ -375,7 +391,10 @@ namespace TPL
 					if (_cachedFrameDatabase == db) ResetFrameCache();
 				}
 			}
-			catch { }
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] DocumentToBeDestroyed handler failed: {ex.Message}");
+			}
 		}
 
 		private void AttachDbEvents(Database db)
@@ -448,11 +467,6 @@ namespace TPL
 				_previewRefreshQueued = false;
 				if (IsLoaded) TriggerPreviewInternal();
 			}), DispatcherPriority.Background);
-		}
-
-		private void RbPng_Checked(object sender, RoutedEventArgs e)
-		{
-
 		}
 	}
 }

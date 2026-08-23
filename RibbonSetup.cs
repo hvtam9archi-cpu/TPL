@@ -11,6 +11,10 @@ namespace TPL
 	{
 		private const string TabId = "TH_TOOLS_TAB";
 		private const string TabTitle = "TH Tools";
+		private const string PanelId = "TPL_PLOTTER_PANEL";
+		private const string PanelTitle = "TPL Plotter";
+		private const string PlotterButtonId = "TPL_PLOTTER";
+		private const string LicenseButtonId = "TPL_LICENSE";
 		private readonly RibbonCommandHandler _cmdHandler = new();
 
 		public void Initialize()
@@ -77,8 +81,9 @@ namespace TPL
 					DeleteObject(hBitmap);
 				}
 			}
-			catch
+			catch (System.Exception ex)
 			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] Could not load embedded image '{resourceName}': {ex.Message}");
 				return null;
 			}
 		}
@@ -99,11 +104,10 @@ namespace TPL
 				}
 
 				// 2. Tìm hoặc Tạo Panel "TPL Plotter"
-				string panelId = "TPL_PLOTTER_PANEL";
 				bool panelExists = false;
 				foreach (RibbonPanel p in rtb.Panels)
 				{
-					if (p.Source.Id == panelId || p.Source.Title == "TPL Plotter")
+					if (p.Source.Id == PanelId || p.Source.Title == PanelTitle)
 					{
 						panelExists = true;
 						break;
@@ -112,28 +116,20 @@ namespace TPL
 
 				if (!panelExists)
 				{
-					RibbonPanelSource rps = new() { Title = "TPL Plotter", Id = panelId };
+					RibbonPanelSource rps = new() { Title = PanelTitle, Id = PanelId };
 					RibbonPanel rp = new() { Source = rps };
 
-					// Load icons từ embedded resource với kích thước chuẩn xác
-					System.Windows.Media.ImageSource tplIconLarge = null;
-					System.Windows.Media.ImageSource tplIconSmall = null;
-					System.Windows.Media.ImageSource licenseIconLarge = null;
-					System.Windows.Media.ImageSource licenseIconSmall = null;
-
-					try
-					{
-						tplIconLarge = LoadEmbeddedImage("TPL.Resource.IconRibbon_32px.png", 32);
-						tplIconSmall = LoadEmbeddedImage("TPL.Resource.IconRibbon_32px.png", 16);
-						licenseIconLarge = LoadEmbeddedImage("TPL.Resource.IconRibbon_License_32px.png", 32);
-						licenseIconSmall = LoadEmbeddedImage("TPL.Resource.IconRibbon_License_32px.png", 16);
-					}
-					catch { }
+					// Load icons từ embedded resource với kích thước chuẩn xác.
+					// LoadEmbeddedImage tự bắt lỗi và trả về null nên không cần try-catch bọc ngoài.
+					System.Windows.Media.ImageSource tplIconLarge = LoadEmbeddedImage("TPL.Resource.IconRibbon_32px.png", 32);
+					System.Windows.Media.ImageSource tplIconSmall = LoadEmbeddedImage("TPL.Resource.IconRibbon_32px.png", 16);
+					System.Windows.Media.ImageSource licenseIconLarge = LoadEmbeddedImage("TPL.Resource.IconRibbon_License_32px.png", 32);
+					System.Windows.Media.ImageSource licenseIconSmall = LoadEmbeddedImage("TPL.Resource.IconRibbon_License_32px.png", 16);
 
 					// 3. Button "TPL Plotter"
 					RibbonButton btnTpl = new()
 					{
-						Id = "TPL_PLOTTER",
+						Id = PlotterButtonId,
 						Text = "\nTPL Plotter", // Thêm \n để hạ thấp text xuống 1 chút
 						ShowText = true,
 						ShowImage = true,
@@ -148,7 +144,7 @@ namespace TPL
 					// 4. Button "TPL License"
 					RibbonButton btnLicense = new()
 					{
-						Id = "TPL_LICENSE",
+						Id = LicenseButtonId,
 						Text = "\nTPL License", // Thêm \n để hạ thấp text xuống 1 chút
 						ShowText = true,
 						ShowImage = true,
@@ -171,6 +167,7 @@ namespace TPL
 			}
 			catch (System.Exception ex)
 			{
+				System.Diagnostics.Debug.WriteLine($"[TPL] Error loading ribbon: {ex}");
 				Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage($"\n[TPL] Error loading ribbon: {ex.Message}\n");
 			}
 		}
