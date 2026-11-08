@@ -856,7 +856,7 @@ namespace TPL
 										modified = true;
 									}
 								}
-								if (modified) docPdf.Save(pdfFile);
+								if (modified) PdfOutput.Save(docPdf, pdfFile);
 							}
 							catch (System.Exception ex)
 							{
@@ -873,14 +873,13 @@ namespace TPL
 						{
 							progressWin.SetSubTitle(L10n.T("prog_merging"));
 							string mergedPath = Path.Combine(outDir, $"{baseName}.pdf");
-							if (File.Exists(mergedPath)) File.Delete(mergedPath);
 							using (var outDoc = new PdfDocument())
 							{
 								foreach (string f in generatedFiles)
 									using (var inDoc = PdfReader.Open(f, PdfDocumentOpenMode.Import))
 										for (int p = 0; p < inDoc.PageCount; p++)
 											outDoc.AddPage(inDoc.Pages[p]);
-								outDoc.Save(mergedPath);
+								PdfOutput.Save(outDoc, mergedPath);
 							}
 							foreach (string f in generatedFiles) { try { File.Delete(f); } catch { } }
 							ed.WriteMessage($"\nMerge OK: {mergedPath}");
@@ -907,7 +906,10 @@ namespace TPL
 									int width = (int)(size.Width * settings.ImageDpi / 72.0);
 									int height = (int)(size.Height * settings.ImageDpi / 72.0);
 
-									using var image = docPdf.Render(0, width, height, settings.ImageDpi, settings.ImageDpi, PdfiumViewer.PdfRenderFlags.Annotations);
+									var renderFlags = PdfiumViewer.PdfRenderFlags.Annotations;
+									if (settings.ImageFormat == "PNG")
+										renderFlags |= PdfiumViewer.PdfRenderFlags.Transparent;
+									using var image = docPdf.Render(0, width, height, settings.ImageDpi, settings.ImageDpi, renderFlags);
 									if (settings.ImageFormat == "JPG")
 										image.Save(imgPath, System.Drawing.Imaging.ImageFormat.Jpeg);
 									else
@@ -955,7 +957,21 @@ namespace TPL
 
 					progressWin.Close();
 					if (settings.OpenPdf && finalPath != null && File.Exists(finalPath))
-						try { System.Diagnostics.Process.Start(finalPath); } catch { }
+					{
+						try
+						{
+							System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+							{
+								FileName = finalPath,
+								UseShellExecute = true
+							});
+						}
+						catch (System.Exception ex)
+						{
+							System.Diagnostics.Trace.WriteLine($"[TPL] Cannot open output '{finalPath}': {ex}");
+							ed.WriteMessage($"\n[TPL] Cannot open output: {ex.Message}");
+						}
+					}
 				}
 				else
 				{

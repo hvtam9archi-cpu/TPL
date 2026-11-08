@@ -2,6 +2,8 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
+[assembly: CommandClass(typeof(TPL.Commands))]
+
 namespace TPL
 {
 	public class Commands
@@ -18,71 +20,38 @@ namespace TPL
 				Document doc = Application.DocumentManager.MdiActiveDocument;
 				if (doc == null) return;
 
-				// Kiểm tra revoke từ xa TRƯỚC — để revoke có hiệu lực ngay lập tức
-				if (LicenseManager.CheckRemoteRevokeSync())
-				{
-					doc.Editor.WriteMessage("\n[TPL] Bản quyền đã bị thu hồi từ xa.\n");
-				}
-
-				// Đồng thời chạy async để cập nhật revoke list trong background
-				LicenseManager.CheckRemoteRevokeAsync();
-
-				// Kiểm tra bản quyền
-				var license = LicenseManager.GetLicenseInfo();
-				if (!license.IsValid)
-				{
-					var licenseWin = new LicenseWindow(license);
-					if (Application.ShowModalWindow(licenseWin) != true)
-					{
-						doc.Editor.WriteMessage("\n[TPL] Bản quyền không hợp lệ hoặc đã hết hạn.\n");
-						return;
-					}
-					license = LicenseManager.GetLicenseInfo();
-					if (!license.IsValid) return;
-				}
-
-				LicenseManager.UpdateLastRunDate(license);
-
 				if (_mainWindow == null || !_mainWindow.IsLoaded)
 				{
 					_mainWindow = new MainWindow();
-					// Gán owner an toàn — Application.MainWindow có thể null
-					try
-					{
-						var acWin = Application.MainWindow;
-						if (acWin != null)
-						{
-							var helper = new System.Windows.Interop.WindowInteropHelper(_mainWindow)
-							{
-								Owner = acWin.Handle
-							};
-						}
-					}
-					catch { /* Bỏ qua nếu không lấy được HWND */ }
-					_mainWindow.Show();
+					Application.ShowModelessWindow(_mainWindow);
 				}
 				else
 				{
+					if (!_mainWindow.IsVisible) _mainWindow.Show();
 					_mainWindow.Activate();
 				}
 			}
+			catch (Autodesk.AutoCAD.Runtime.Exception ex)
+			{
+				ReportCommandError(ex);
+			}
 			catch (System.Exception ex)
 			{
-				try
-				{
-					var ed = Application.DocumentManager.MdiActiveDocument?.Editor;
-					ed?.WriteMessage($"\n[TPL] Error: {ex}\n");
-				}
-				catch { }
+				ReportCommandError(ex);
 			}
 		}
 
-		[CommandMethod("TPL_LICENSE")]
-		public void LicenseCommand()
+		private static void ReportCommandError(System.Exception exception)
 		{
-			var license = LicenseManager.GetLicenseInfo();
-			var licenseWin = new LicenseWindow(license);
-			Application.ShowModalWindow(licenseWin);
+			System.Diagnostics.Trace.WriteLine($"[TPL] TPL command: {exception}");
+			try
+			{
+				Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage($"\n[TPL] Error: {exception.Message}\n");
+			}
+			catch (System.Exception loggingException)
+			{
+				System.Diagnostics.Trace.WriteLine($"[TPL] Cannot report command error: {loggingException}");
+			}
 		}
 
 	}

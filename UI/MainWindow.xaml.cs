@@ -22,7 +22,6 @@ namespace TPL
 		private readonly DispatcherTimer _previewDebounce;
 		private Document _markerDoc;
 		private Document _selectionDoc;
-		private static readonly Dictionary<Document, List<DBObject>> _pendingTransients = new();
 		private readonly Dictionary<Database, List<ObjectId>> _permanentMarkerIds = new();
 		private readonly HashSet<Database> _initializedMarkerCleanup = new();
 		private static bool _globalEventsSubscribed = false;
@@ -395,6 +394,11 @@ namespace TPL
 			{
 				if (e.Document != null && !e.Document.IsDisposed)
 				{
+					if (_selectionDoc == e.Document)
+					{
+						tempManualSelectionIds.Clear();
+						_selectionDoc = null;
+					}
 					Database db = e.Document.Database;
 					DetachDbEvents(db);
 					_permanentMarkerIds.Remove(db);

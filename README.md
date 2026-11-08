@@ -19,8 +19,6 @@
   - Giao diện được thiết kế hoàn toàn bằng WPF với ngôn ngữ thiết kế **Dark Mode** đồng bộ, hiện đại, mang lại trải nghiệm chuyên nghiệp cho người dùng.
   - Hỗ trợ đa ngôn ngữ (Localization).
   - Tích hợp trực tiếp thanh Ribbon tiện dụng trên AutoCAD.
-- **Quản Lý Bản Quyền (License Manager):**
-  - Hệ thống xác thực thông tin thiết bị và quản lý kích hoạt bản quyền an toàn.
 
 ---
 
@@ -35,13 +33,12 @@
 ## Danh sách lệnh trong AutoCAD
 
 - `TPL`: Khởi chạy giao diện chính hỗ trợ in ấn hàng loạt và biên tập tệp PDF.
-- `TPL_LICENSE`: Mở cửa sổ thông tin và kích hoạt bản quyền sản phẩm.
 
 ---
 
 - **Cấu trúc Thư mục Dự án:**
-  - `UI/`: Chứa toàn bộ giao diện người dùng WPF (`MainWindow`, `PdfEditorWindow`, `LicenseWindow`, `ProgressWindow`, `DarkProgressControl`).
-  - `Logic/`: Chứa logic xử lý nghiệp vụ, in ấn bản vẽ và cấu hình (`CoreLogic.cs`, `PlotLogic.cs`, `LicenseManager.cs`, `Localization.cs`).
+  - `UI/`: Chứa toàn bộ giao diện người dùng WPF (`MainWindow`, `PdfEditorWindow`, `ProgressWindow`, `DarkProgressControl`).
+  - `Logic/`: Chứa logic xử lý nghiệp vụ, in ấn bản vẽ, lưu PDF an toàn và cấu hình (`CoreLogic.cs`, `PlotLogic.cs`, `PdfOutput.cs`, `Localization.cs`).
   - Root: Gồm các entry point chính (`Commands.cs`, `RibbonSetup.cs`), tệp dự án (`TPL.csproj`) và các tài nguyên đi kèm.
 - **Công nghệ sử dụng:**
   - **WPF (Windows Presentation Foundation):** Thiết kế giao diện Dark Mode đồng bộ, chuyên nghiệp.
@@ -53,12 +50,13 @@
 ## Hướng dẫn Build & Triển khai
 
 1. **Chuẩn bị:** Mở tệp Solution `TPL.sln` bằng Visual Studio.
-2. **Build:** Thực hiện Build project ở chế độ mong muốn.
+2. **Build:** Chọn `Release | x64`, hoặc chạy `dotnet build TPL.csproj -c Release -p:Platform=x64 -p:EnableBundleDeploy=false` để kiểm tra cả hai target mà không deploy.
 3. **Tự động Deploy:** Sự kiện Post-build được cấu hình sẵn trong `TPL.csproj` sẽ tự động tạo thư mục bundle và sao chép toàn bộ DLL cần thiết cùng tệp cấu hình vào thư mục Plugins của AutoCAD:
    ```text
    %AppData%\Autodesk\ApplicationPlugins\TPL.bundle
    ```
 4. **Khởi động:** Mở AutoCAD lên và Plugin sẽ tự động được tải (LoadOnAutoCADStartup).
+5. **Đóng gói:** Sau khi build Release x64, biên dịch `TPL_Installer.iss` bằng Inno Setup. Installer lấy DLL từ `bin/x64/Release`.
 
 ---
 

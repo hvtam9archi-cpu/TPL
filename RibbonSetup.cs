@@ -5,6 +5,8 @@ using Autodesk.AutoCAD.Runtime;
 using Autodesk.Windows;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
+[assembly: ExtensionApplication(typeof(TPL.RibbonSetup))]
+
 namespace TPL
 {
 	public class RibbonSetup : IExtensionApplication
@@ -29,18 +31,28 @@ namespace TPL
 
 		private void Application_Idle(object sender, EventArgs e)
 		{
-			if (ComponentManager.Ribbon != null)
+			try
 			{
-				Application.Idle -= Application_Idle;
-				CreateRibbon();
+				if (ComponentManager.Ribbon != null && CreateRibbon())
+					Application.Idle -= Application_Idle;
+			}
+			catch (System.Exception ex)
+			{
+				System.Diagnostics.Trace.WriteLine($"[TPL] Ribbon Idle setup: {ex}");
 			}
 		}
 
 		private void Application_SystemVariableChanged(object sender, Autodesk.AutoCAD.ApplicationServices.SystemVariableChangedEventArgs e)
 		{
-			if (e.Name.Equals("WSCURRENT", StringComparison.OrdinalIgnoreCase) && ComponentManager.Ribbon != null)
+			try
 			{
-				CreateRibbon();
+				if (!string.Equals(e.Name, "WSCURRENT", StringComparison.OrdinalIgnoreCase)) return;
+				Application.Idle -= Application_Idle;
+				Application.Idle += Application_Idle;
+			}
+			catch (System.Exception ex)
+			{
+				System.Diagnostics.Trace.WriteLine($"[TPL] Ribbon workspace change: {ex}");
 			}
 		}
 
@@ -77,18 +89,19 @@ namespace TPL
 					DeleteObject(hBitmap);
 				}
 			}
-			catch
+			catch (System.Exception ex)
 			{
+				System.Diagnostics.Trace.WriteLine($"[TPL] Cannot load ribbon image '{resourceName}': {ex}");
 				return null;
 			}
 		}
 
-		private void CreateRibbon()
+		private bool CreateRibbon()
 		{
 			try
 			{
 				RibbonControl ribbon = ComponentManager.Ribbon;
-				if (ribbon == null) return;
+				if (ribbon == null) return false;
 
 				// 1. Tìm hoặc Tạo Tab "TH Tools"
 				RibbonTab rtb = ribbon.FindTab(TabId);
@@ -96,6 +109,7 @@ namespace TPL
 				{
 					rtb = new RibbonTab { Title = TabTitle, Id = TabId };
 					ribbon.Tabs.Add(rtb);
+					rtb.IsActive = true;
 				}
 
 				// 2. Tìm hoặc Tạo Panel "TPL Plotter"
@@ -116,19 +130,8 @@ namespace TPL
 					RibbonPanel rp = new() { Source = rps };
 
 					// Load icons từ embedded resource với kích thước chuẩn xác
-					System.Windows.Media.ImageSource tplIconLarge = null;
-					System.Windows.Media.ImageSource tplIconSmall = null;
-					System.Windows.Media.ImageSource licenseIconLarge = null;
-					System.Windows.Media.ImageSource licenseIconSmall = null;
-
-					try
-					{
-						tplIconLarge = LoadEmbeddedImage("TPL.Resource.IconRibbon_32px.png", 32);
-						tplIconSmall = LoadEmbeddedImage("TPL.Resource.IconRibbon_32px.png", 16);
-						licenseIconLarge = LoadEmbeddedImage("TPL.Resource.IconRibbon_License_32px.png", 32);
-						licenseIconSmall = LoadEmbeddedImage("TPL.Resource.IconRibbon_License_32px.png", 16);
-					}
-					catch { }
+					var tplIconLarge = LoadEmbeddedImage("TPL.Resource.IconRibbon_32px.png", 32);
+					var tplIconSmall = LoadEmbeddedImage("TPL.Resource.IconRibbon_32px.png", 16);
 
 					// 3. Button "TPL Plotter"
 					RibbonButton btnTpl = new()
@@ -145,33 +148,19 @@ namespace TPL
 					if (tplIconLarge != null) btnTpl.LargeImage = tplIconLarge;
 					if (tplIconSmall != null) btnTpl.Image = tplIconSmall;
 
-					// 4. Button "TPL License"
-					RibbonButton btnLicense = new()
-					{
-						Id = "TPL_LICENSE",
-						Text = "\nTPL License", // Thêm \n để hạ thấp text xuống 1 chút
-						ShowText = true,
-						ShowImage = true,
-						Size = RibbonItemSize.Large,
-						Orientation = System.Windows.Controls.Orientation.Vertical,
-						CommandParameter = "\x03\x03TPL_LICENSE ",
-						CommandHandler = _cmdHandler
-					};
-					if (licenseIconLarge != null) btnLicense.LargeImage = licenseIconLarge;
-					if (licenseIconSmall != null) btnLicense.Image = licenseIconSmall;
-
 					// Thêm vào Panel — bố cục hàng ngang (không dùng RibbonRowBreak)
 					rps.Items.Add(btnTpl);
-					rps.Items.Add(btnLicense);
 
 					rtb.Panels.Add(rp);
 				}
 
 				rtb.IsActive = true;
+				return true;
 			}
 			catch (System.Exception ex)
 			{
-				Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage($"\n[TPL] Error loading ribbon: {ex.Message}\n");
+				System.Diagnostics.Trace.WriteLine($"[TPL] Create ribbon: {ex}");
+				return false;
 			}
 		}
 	}

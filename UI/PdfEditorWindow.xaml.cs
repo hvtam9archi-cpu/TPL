@@ -94,6 +94,7 @@ namespace TPL
 		// ─── Singleton ──────────────────────────────────────────────────────
 		private static PdfEditorWindow _instance;
 		private bool _isClosing = false;
+		private bool _isSaving;
 		public static PdfEditorWindow Instance
 		{
 			get
@@ -131,7 +132,8 @@ namespace TPL
 			10, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500
 		};
 		private readonly ObservableCollection<int> _zoomPercentOptions = new(StandardZoomPercentages);
-		private readonly PdfViewer _pdfViewer;
+		private readonly PdfPreviewViewer _pdfViewer;
+		private readonly PdfPreviewZoomController _previewZoomController;
 		private MemoryStream _currentPreviewStream;
 		private int _previewRequestId;
 		private int? _customZoomPercentage;
@@ -143,11 +145,9 @@ namespace TPL
 		{
 			InitializeComponent();
 
-			// Tạo PdfViewer (WinForms) và host trong WPF
-			_pdfViewer = new PdfViewer
+			// Tạo PDF preview (WinForms) và host trong WPF
+			_pdfViewer = new PdfPreviewViewer
 			{
-				ShowToolbar = false,
-				ShowBookmarks = false,
 				Dock = System.Windows.Forms.DockStyle.Fill,
 				BackColor = System.Drawing.Color.FromArgb(0x18, 0x1A, 0x1F)
 			};
@@ -155,6 +155,7 @@ namespace TPL
 			_pdfViewer.Renderer.MouseWheelMode = MouseWheelMode.Zoom;
 			_pdfViewer.Renderer.ZoomChanged += PdfRenderer_ZoomChanged;
 			_pdfViewer.Renderer.HandleCreated += PdfRenderer_HandleCreated;
+			_previewZoomController = new PdfPreviewZoomController(_pdfViewer.Renderer);
 			cmbZoomPercent.ItemsSource = _zoomPercentOptions;
 			pdfHost.Child = _pdfViewer;
 			UpdateZoomControls();
@@ -469,6 +470,7 @@ namespace TPL
 		private async void LstPages_SelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
 			if (_isReordering) return;
+			_previewZoomController.CancelPendingZoom();
 			int requestId = ++_previewRequestId;
 
 			if (lstPages.SelectedItem is PdfPageViewModel item)
@@ -509,6 +511,7 @@ namespace TPL
 
 					_currentPreviewStream = ms;
 					_pdfViewer.Document = pdfDoc;
+					_ = _pdfViewer.Renderer.PrepareZoomPreviewAsync(previewData);
 					UpdateZoomControls();
 
 					oldDoc?.Dispose();
@@ -531,13 +534,13 @@ namespace TPL
 		private void BtnZoomOut_Click(object sender, RoutedEventArgs e)
 		{
 			if (_pdfViewer.Document != null)
-				SetPreviewZoom(_pdfViewer.Renderer.Zoom / _pdfViewer.Renderer.ZoomFactor);
+				SetPreviewZoom(_previewZoomController.RequestedZoom / _pdfViewer.Renderer.ZoomFactor);
 		}
 
 		private void BtnZoomIn_Click(object sender, RoutedEventArgs e)
 		{
 			if (_pdfViewer.Document != null)
-				SetPreviewZoom(_pdfViewer.Renderer.Zoom * _pdfViewer.Renderer.ZoomFactor);
+				SetPreviewZoom(_previewZoomController.RequestedZoom * _pdfViewer.Renderer.ZoomFactor);
 		}
 
 		private void CmbZoomPercent_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -551,44 +554,8 @@ namespace TPL
 		private void SetPreviewZoom(double requestedZoom)
 		{
 			PdfRenderer renderer = _pdfViewer.Renderer;
-			if (_pdfViewer.Document == null || renderer.ClientSize.Width <= 0 || renderer.ClientSize.Height <= 0)
-				return;
-
-			double targetZoom = Math.Min(Math.Max(requestedZoom, renderer.ZoomMin), renderer.ZoomMax);
-			if (Math.Abs(targetZoom - renderer.Zoom) < 0.0001)
-				return;
-
-			var viewportCenter = new System.Drawing.Point(
-				renderer.ClientSize.Width / 2,
-				renderer.ClientSize.Height / 2);
-			PdfPoint pdfAnchor = renderer.PointToPdf(viewportCenter);
-			System.Drawing.Rectangle oldDisplay = renderer.DisplayRectangle;
-			double fallbackX = oldDisplay.Width > 0
-				? (viewportCenter.X - oldDisplay.Left) / (double)oldDisplay.Width
-				: 0.5;
-			double fallbackY = oldDisplay.Height > 0
-				? (viewportCenter.Y - oldDisplay.Top) / (double)oldDisplay.Height
-				: 0.5;
-
-			renderer.Zoom = targetZoom;
-
-			System.Drawing.Rectangle newDisplay = renderer.DisplayRectangle;
-			System.Drawing.Point targetDisplayLocation;
-			if (pdfAnchor.IsValid)
-			{
-				System.Drawing.Point movedAnchor = renderer.PointFromPdf(pdfAnchor);
-				targetDisplayLocation = new System.Drawing.Point(
-					newDisplay.Left + viewportCenter.X - movedAnchor.X,
-					newDisplay.Top + viewportCenter.Y - movedAnchor.Y);
-			}
-			else
-			{
-				targetDisplayLocation = new System.Drawing.Point(
-					(int)Math.Round(viewportCenter.X - (fallbackX * newDisplay.Width)),
-					(int)Math.Round(viewportCenter.Y - (fallbackY * newDisplay.Height)));
-			}
-
-			renderer.SetDisplayRectLocation(targetDisplayLocation, false);
+			_previewZoomController.RequestZoom(requestedZoom,
+				renderer.PointToClient(System.Windows.Forms.Cursor.Position));
 		}
 
 		private void PdfRenderer_ZoomChanged(object sender, EventArgs e)
@@ -616,6 +583,7 @@ namespace TPL
 
 		private void UpdateZoomPercentageSelection(int zoomPercent)
 		{
+			if (cmbZoomPercent.SelectedItem is int selectedPercentage && selectedPercentage == zoomPercent) return;
 			_isUpdatingZoomSelection = true;
 			try
 			{
@@ -801,7 +769,7 @@ namespace TPL
 		// ─── Save with Progress Bar (async — không block UI) ────────────────
 		private async void BtnSave_Click(object sender, RoutedEventArgs e)
 		{
-			if (_pages.Count == 0) return;
+			if (_pages.Count == 0 || _isSaving || _isClosing) return;
 
 			var sfd = new Microsoft.Win32.SaveFileDialog
 			{
@@ -812,7 +780,10 @@ namespace TPL
 
 			if (sfd.ShowDialog() != true) return;
 
-			string savePath = sfd.FileName;
+			string savePath = Path.GetFullPath(sfd.FileName);
+			string sourceSnapshotPath = null;
+			bool loadGateHeld = false;
+			_isSaving = true;
 
 			// Hiện progress bar và disable buttons
 			pnlProgress.Visibility = Visibility.Visible;
@@ -821,19 +792,28 @@ namespace TPL
 			pnlProgress.Percent = "0%";
 			btnSave.IsEnabled = false;
 			btnCancel.IsEnabled = false;
-
-			// Snapshot dữ liệu cần thiết từ UI thread trước khi vào background
-			var pageSnapshots = _pages
-				.Select(p => new { p.SourceFile, p.PageIndex, p.RotationDelta })
-				.ToList();
+			btnClose.IsEnabled = false;
 
 			try
 			{
+				// Finish pending imports before taking the UI snapshot. Closing is blocked
+				// until saving finishes so cleanup cannot delete files being read here.
+				await _pdfLoadGate.WaitAsync(_loadCancellation.Token);
+				loadGateHeld = true;
+				var pageSnapshots = _pages
+					.Select(p => new { SourceFile = Path.GetFullPath(p.SourceFile), p.PageIndex, p.RotationDelta })
+					.ToList();
 				int total = pageSnapshots.Count;
 
 				// Heavy I/O chạy trên background thread
 				await Task.Run(() =>
 				{
+					if (pageSnapshots.Any(item => string.Equals(item.SourceFile, savePath, StringComparison.OrdinalIgnoreCase)))
+					{
+						sourceSnapshotPath = Path.Combine(Path.GetTempPath(), $"TPL-source-{Guid.NewGuid():N}.pdf");
+						File.Copy(savePath, sourceSnapshotPath);
+					}
+
 					var inputDocs = new Dictionary<string, PdfSharp.Pdf.PdfDocument>(StringComparer.OrdinalIgnoreCase);
 					var remainingSourceUses = pageSnapshots
 						.GroupBy(item => item.SourceFile, StringComparer.OrdinalIgnoreCase)
@@ -847,7 +827,9 @@ namespace TPL
 							var item = pageSnapshots[i];
 							if (!inputDocs.TryGetValue(item.SourceFile, out PdfSharp.Pdf.PdfDocument inDoc))
 							{
-								inDoc = PdfReader.Open(item.SourceFile, PdfDocumentOpenMode.Import);
+								string inputPath = sourceSnapshotPath != null && string.Equals(item.SourceFile, savePath, StringComparison.OrdinalIgnoreCase)
+									? sourceSnapshotPath : item.SourceFile;
+								inDoc = PdfReader.Open(inputPath, PdfDocumentOpenMode.Import);
 								inputDocs[item.SourceFile] = inDoc;
 							}
 
@@ -893,18 +875,44 @@ namespace TPL
 					}
 
 					// Release all source file handles before overwriting a selected input path.
-					outDoc.Save(savePath);
+					PdfOutput.Save(outDoc, savePath);
 				});
+
+				// Keep original page indexes/rotations valid for subsequent edits and saves.
+				// A saved output belongs to the user, even when it replaces a plot file.
+				if (sourceSnapshotPath != null)
+				{
+					_autoGeneratedFiles.Add(sourceSnapshotPath);
+					foreach (PdfPageViewModel page in _pages)
+					{
+						if (string.Equals(Path.GetFullPath(page.SourceFile), savePath, StringComparison.OrdinalIgnoreCase))
+							page.SourceFile = sourceSnapshotPath;
+					}
+					sourceSnapshotPath = null;
+				}
+				_autoGeneratedFiles.RemoveAll(file => string.Equals(Path.GetFullPath(file), savePath, StringComparison.OrdinalIgnoreCase));
 
 				// Hoàn tất — trở lại UI thread
 				pnlProgress.Value = 100;
 				pnlProgress.Percent = "100%";
 				pnlProgress.Label = "✅ " + L10n.T("msg_save_success");
 
-				try { System.Diagnostics.Process.Start(savePath); } catch { }
+				try
+				{
+					System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+					{
+						FileName = savePath,
+						UseShellExecute = true
+					});
+				}
+				catch (Exception ex)
+				{
+					System.Diagnostics.Trace.WriteLine($"[PdfEditor] Cannot open saved PDF '{savePath}': {ex}");
+				}
 			}
 			catch (Exception ex)
 			{
+				System.Diagnostics.Trace.WriteLine($"[PdfEditor] Save PDF '{savePath}': {ex}");
 				MessageBox.Show(
 					string.Format(L10n.T("msg_save_error"), ex.Message),
 					L10n.T("err_title"),
@@ -912,8 +920,17 @@ namespace TPL
 			}
 			finally
 			{
+				if (loadGateHeld) _pdfLoadGate.Release();
+				if (sourceSnapshotPath != null)
+				{
+					try { File.Delete(sourceSnapshotPath); }
+					catch (IOException ex) { System.Diagnostics.Trace.WriteLine($"[PdfEditor] Cannot delete source snapshot '{sourceSnapshotPath}': {ex}"); }
+					catch (UnauthorizedAccessException ex) { System.Diagnostics.Trace.WriteLine($"[PdfEditor] Cannot delete source snapshot '{sourceSnapshotPath}': {ex}"); }
+				}
+				_isSaving = false;
 				btnSave.IsEnabled = true;
 				btnCancel.IsEnabled = true;
+				btnClose.IsEnabled = true;
 				// Ẩn progress bar sau 2 giây
 				var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
 				timer.Tick += (s2, e2) =>
@@ -1341,8 +1358,16 @@ namespace TPL
 
 		protected override void OnClosing(CancelEventArgs e)
 		{
+			if (_isSaving)
+			{
+				e.Cancel = true;
+				base.OnClosing(e);
+				return;
+			}
+
 			// Đánh dấu đang đóng — ngăn Instance getter tạo lại trong lúc cleanup
 			_isClosing = true;
+			_previewZoomController.CancelPendingZoom();
 			ClearDropIndicator();
 			_previewRequestId++;
 			_loadCancellation.Cancel();
@@ -1361,6 +1386,7 @@ namespace TPL
 				}
 				_pdfViewer.Renderer.HandleCreated -= PdfRenderer_HandleCreated;
 				_pdfViewer.Renderer.ZoomChanged -= PdfRenderer_ZoomChanged;
+				_previewZoomController.Dispose();
 				var oldDoc = _pdfViewer?.Document;
 				if (_pdfViewer != null) _pdfViewer.Document = null;
 				oldDoc?.Dispose();

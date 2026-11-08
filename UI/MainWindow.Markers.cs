@@ -51,7 +51,6 @@ namespace TPL
 		{
 			if (_globalEventsSubscribed) return;
 
-			Application.DocumentManager.DocumentActivated += GlobalDocumentActivated;
 			Application.DocumentManager.DocumentToBeDestroyed += GlobalDocumentToBeDestroyed;
 			_globalEventsSubscribed = true;
 		}
@@ -60,38 +59,28 @@ namespace TPL
 		{
 			if (!_globalEventsSubscribed) return;
 
-			Application.DocumentManager.DocumentActivated -= GlobalDocumentActivated;
+			Commands.MainFormInstance?.ClearTransientMarkers();
 			Application.DocumentManager.DocumentToBeDestroyed -= GlobalDocumentToBeDestroyed;
 			_globalEventsSubscribed = false;
-		}
-
-		private static void GlobalDocumentActivated(object sender, DocumentCollectionEventArgs e)
-		{
-			try
-			{
-				if (e?.Document == null || e.Document.IsDisposed) return;
-				if (!_pendingTransients.TryGetValue(e.Document, out var list)) return;
-				var tm = TransientManager.CurrentTransientManager;
-				if (tm == null) return;
-				foreach (var obj in list)
-				{ try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
-				_pendingTransients.Remove(e.Document);
-			}
-			catch { }
 		}
 
 		private static void GlobalDocumentToBeDestroyed(object sender, DocumentCollectionEventArgs e)
 		{
 			try
 			{
-				if (e?.Document == null || !_pendingTransients.TryGetValue(e.Document, out var list)) return;
-				foreach (var obj in list)
-				{
-					try { obj?.Dispose(); } catch { }
-				}
-				_pendingTransients.Remove(e.Document);
+				MainWindow window = Commands.MainFormInstance;
+				if (e?.Document == null || window == null || window._markerDoc != e.Document) return;
+				window.ClearTransientMarkers();
+				window._markerDoc = null;
 			}
-			catch { }
+			catch (Autodesk.AutoCAD.Runtime.Exception ex)
+			{
+				System.Diagnostics.Trace.WriteLine($"[TPL] DocumentToBeDestroyed transient cleanup: {ex}");
+			}
+			catch (System.Exception ex)
+			{
+				System.Diagnostics.Trace.WriteLine($"[TPL] DocumentToBeDestroyed transient cleanup: {ex}");
+			}
 		}
 
 		// ── Markers ──
@@ -109,26 +98,47 @@ namespace TPL
 
 		private void ClearTransientMarkers()
 		{
+			if (transientObjects.Count == 0)
+			{
+				_markerDoc = null;
+				return;
+			}
+
 			try
 			{
-				if (transientObjects.Count == 0) return;
-				Document currentDoc = Application.DocumentManager.MdiActiveDocument;
-				if (_markerDoc != null && currentDoc != null && _markerDoc != currentDoc && !_markerDoc.IsDisposed)
+				// These drawables are owned in memory and are never opened from a Database.
+				// Remove each drawable from every viewport before releasing its native object,
+				// including when its drawing is inactive or is about to be destroyed.
+				var manager = TransientManager.CurrentTransientManager;
+				if (manager == null) return;
+				for (int index = transientObjects.Count - 1; index >= 0; index--)
 				{
-					if (!_pendingTransients.ContainsKey(_markerDoc)) _pendingTransients[_markerDoc] = new List<DBObject>();
-					_pendingTransients[_markerDoc].AddRange(transientObjects);
-					transientObjects.Clear(); return;
+					DBObject drawable = transientObjects[index];
+					try
+					{
+						if (drawable != null && !drawable.IsDisposed)
+						{
+							manager.EraseTransient(drawable, new IntegerCollection());
+							drawable.Dispose();
+						}
+						transientObjects.RemoveAt(index);
+					}
+					catch (Autodesk.AutoCAD.Runtime.Exception ex)
+					{
+						System.Diagnostics.Trace.WriteLine($"[TPL] Cannot erase transient marker {index}: {ex}");
+					}
+					catch (System.Exception ex)
+					{
+						System.Diagnostics.Trace.WriteLine($"[TPL] Cannot release transient marker {index}: {ex}");
+					}
 				}
-				if (currentDoc != null)
-				{
-					using var docLock = currentDoc.LockDocument();
-					var tm = TransientManager.CurrentTransientManager;
-					foreach (var obj in transientObjects)
-					{ try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
-				}
-				transientObjects.Clear();
+				if (transientObjects.Count == 0) _markerDoc = null;
 			}
-			catch { transientObjects.Clear(); }
+			catch (System.Exception ex)
+			{
+				// Keep ownership so a later cleanup can retry after a graphics-system error.
+				System.Diagnostics.Trace.WriteLine($"[TPL] Transient marker cleanup: {ex}");
+			}
 		}
 
 		private void ClearPermanentMarkers()
@@ -228,19 +238,23 @@ namespace TPL
 						Attachment = AttachmentPoint.MiddleCenter,
 						ColorIndex = 1
 					};
-					tm.AddTransient(txt, TransientDrawingMode.Main, 128, new IntegerCollection());
 					transientObjects.Add(txt);
+					tm.AddTransient(txt, TransientDrawingMode.Main, 128, new IntegerCollection());
 
 					var line = new Line(new Point3d(frame.Extents.MinPoint.X, frame.Extents.MaxPoint.Y, 0), new Point3d(frame.Extents.MaxPoint.X, frame.Extents.MinPoint.Y, 0))
 					{
 						ColorIndex = 1
 					};
-					tm.AddTransient(line, TransientDrawingMode.Main, 128, new IntegerCollection());
 					transientObjects.Add(line);
+					tm.AddTransient(line, TransientDrawingMode.Main, 128, new IntegerCollection());
 				}
 				doc.Editor.UpdateScreen();
 			}
-			catch { ClearTransientMarkers(); }
+			catch (System.Exception ex)
+			{
+				System.Diagnostics.Trace.WriteLine($"[TPL] Draw transient markers: {ex}");
+				ClearTransientMarkers();
+			}
 		}
 
 		private void DrawPermanentMarkers(List<PlotFrame> frames)
@@ -308,46 +322,6 @@ namespace TPL
 		}
 
 		// ── Cleanup on close ──
-		private void QueueTransientsForCleanup()
-		{
-			try
-			{
-				var tm = TransientManager.CurrentTransientManager;
-				Document currentDoc = Application.DocumentManager.MdiActiveDocument;
-				if (transientObjects.Count > 0 && _markerDoc != null && !_markerDoc.IsDisposed)
-				{
-					if (_markerDoc == currentDoc)
-					{
-						try
-						{
-							using var docLock = _markerDoc.LockDocument();
-							foreach (var obj in transientObjects)
-							{ try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
-						}
-						catch { }
-					}
-					else
-					{
-						if (!_pendingTransients.ContainsKey(_markerDoc)) _pendingTransients[_markerDoc] = new List<DBObject>();
-						_pendingTransients[_markerDoc].AddRange(transientObjects);
-					}
-					transientObjects.Clear();
-				}
-				if (currentDoc != null && _pendingTransients.TryGetValue(currentDoc, out var list))
-				{
-					try
-					{
-						using var docLock = currentDoc.LockDocument();
-						foreach (var obj in list)
-						{ try { if (obj != null && !obj.IsDisposed) { tm.EraseTransient(obj, new IntegerCollection()); obj.Dispose(); } } catch { } }
-					}
-					catch { }
-					_pendingTransients.Remove(currentDoc);
-				}
-			}
-			catch { }
-		}
-
 		private void ClearTrackedPermanentMarkers()
 		{
 			foreach (Document doc in Application.DocumentManager)
@@ -365,7 +339,7 @@ namespace TPL
 			_previewDebounce?.Stop();
 			_previewRefreshQueued = false;
 			ResetFrameCache();
-			QueueTransientsForCleanup();
+			ClearTransientMarkers();
 			ClearTrackedPermanentMarkers();
 			try { UnsubscribeDatabaseEvents(); } catch { }
 			base.OnClosed(e);
